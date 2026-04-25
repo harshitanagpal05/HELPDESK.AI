@@ -1,7 +1,8 @@
 import { pipeline, env } from '@xenova/transformers';
 
-// Disable local models to fetch from HuggingFace hub (it uses browser cache)
+// Explicitly enable browser caching for models
 env.allowLocalModels = false;
+env.useBrowserCache = true; // Use IndexedDB for storage
 // Use WASM proxy if available for better performance
 env.backends.onnx.wasm.proxy = true;
 
