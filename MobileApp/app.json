@@ -27,7 +27,6 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-secure-store",
       "@logrocket/react-native",
       [
         "expo-build-properties",
