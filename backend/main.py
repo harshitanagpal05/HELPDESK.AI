@@ -496,14 +496,16 @@ async def save_ticket(request_body: TicketSaveRequest):
 
         duplicate_indexed = True
         duplicate_index_warning = None
-        duplicate_text = (request_body.description or request_body.subject or "").strip()
+        description_text = (request_body.description or "").strip()
+        subject_text = (request_body.subject or "").strip()
+        duplicate_text = description_text or subject_text
         if duplicate_text:
             try:
                 duplicate_service.add_ticket(str(ticket_id), duplicate_text)
             except Exception as index_error:
                 duplicate_indexed = False
-                duplicate_index_warning = f"Duplicate index update failed: {index_error}"
-                print(f"[WARNING] {duplicate_index_warning}")
+                duplicate_index_warning = "Duplicate index update failed."
+                print(f"[WARNING] {duplicate_index_warning} ticket_id={ticket_id} error={index_error}")
         else:
             duplicate_indexed = False
             duplicate_index_warning = "Duplicate index update skipped: no description or subject text was provided."
