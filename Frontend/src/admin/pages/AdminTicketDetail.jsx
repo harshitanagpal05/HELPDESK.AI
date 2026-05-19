@@ -49,8 +49,8 @@ const AdminTicketDetail = () => {
                 .from('tickets')
                 .select(`
                     *,
-                    creator:profiles!tickets_user_id_fkey(full_name, email),
-                    assignee:profiles!tickets_assigned_agent_id_fkey(full_name, email)
+                    creator:profiles!tickets_user_id_fkey(full_name, email, profile_picture),
+                    assignee:profiles!tickets_assigned_agent_id_fkey(full_name, email, profile_picture)
                 `)
                 .eq('id', ticket_id)
                 .single();

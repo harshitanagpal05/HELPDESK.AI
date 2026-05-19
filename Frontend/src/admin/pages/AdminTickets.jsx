@@ -80,8 +80,8 @@ const AdminTickets = () => {
                 .from('tickets')
                 .select(`
                     *,
-                    creator:profiles!tickets_user_id_fkey(full_name, email),
-                    assignee:profiles!tickets_assigned_agent_id_fkey(full_name, email)
+                    creator:profiles!tickets_user_id_fkey(full_name, email, profile_picture),
+                    assignee:profiles!tickets_assigned_agent_id_fkey(full_name, email, profile_picture)
                 `);
 
             if (profile?.role === 'admin' && profile?.company) {
@@ -315,9 +315,17 @@ const AdminTickets = () => {
                                     {/* User (Joined with Profiles) */}
                                     <td className="px-6 py-6">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 transition-all border border-transparent group-hover:border-slate-100">
-                                                <User size={14} />
-                                            </div>
+                                            {ticket.creator?.profile_picture || ticket.profiles?.profile_picture ? (
+                                                <img
+                                                    src={ticket.creator?.profile_picture || ticket.profiles?.profile_picture}
+                                                    alt={ticket.creator?.full_name || ticket.profiles?.full_name || 'User'}
+                                                    className="w-8 h-8 rounded-lg object-cover border border-slate-100 shadow-sm"
+                                                />
+                                            ) : (
+                                                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs border border-emerald-100/50">
+                                                    {(ticket.creator?.full_name || ticket.profiles?.full_name || 'System').charAt(0).toUpperCase()}
+                                                </div>
+                                            )}
                                             <div className="flex flex-col">
                                                 <span className="text-xs font-black text-slate-800 tracking-tight italic uppercase truncate max-w-[120px]">
                                                     {ticket.creator?.full_name || ticket.profiles?.full_name || 'System'}

@@ -83,8 +83,10 @@ const TicketTable = ({ tickets = [], isLoading = false, limit = null }) => {
                         const truncId = tid.length > 8 ? tid.slice(0, 8) + '...' : tid;
 
                         // User initial
-                        const userName = ticket.profiles?.full_name || ticket.user_name || 'User';
+                        const userProfile = ticket.creator || ticket.profiles;
+                        const userName = userProfile?.full_name || ticket.user_name || 'User';
                         const initial = userName.charAt(0).toUpperCase();
+                        const profilePic = userProfile?.profile_picture;
 
                         return (
                             <tr
@@ -112,9 +114,17 @@ const TicketTable = ({ tickets = [], isLoading = false, limit = null }) => {
                                 {/* Incident Context - FIXED */}
                                 <td style={{ padding: '14px 24px' }}>
                                     <div className="flex items-center gap-3">
-                                        <div style={{ width: 32, height: 32, background: '#f0fdf4', border: '1px solid #d1fae5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                            <span style={{ color: '#16a34a', fontSize: '12px', fontWeight: 600 }}>{initial}</span>
-                                        </div>
+                                        {profilePic ? (
+                                            <img
+                                                src={profilePic}
+                                                alt={userName}
+                                                style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', border: '1px solid #d1fae5', flexShrink: 0 }}
+                                            />
+                                        ) : (
+                                            <div style={{ width: 32, height: 32, background: '#f0fdf4', border: '1px solid #d1fae5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                <span style={{ color: '#16a34a', fontSize: '12px', fontWeight: 600 }}>{initial}</span>
+                                            </div>
+                                        )}
                                         <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '220px' }}>
                                             <span style={{ fontSize: '13px', fontWeight: 500, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                 {truncSubject}

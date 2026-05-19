@@ -80,7 +80,7 @@ const AdminDashboard = () => {
                 .from('tickets')
                 .select(`
                     *,
-                    creator:profiles!tickets_user_id_fkey(full_name, email)
+                    creator:profiles!tickets_user_id_fkey(full_name, email, profile_picture)
                 `)
                 .order('created_at', { ascending: false });
             if (profile?.role === 'admin' && profile?.company) query = query.eq('company', profile.company);
