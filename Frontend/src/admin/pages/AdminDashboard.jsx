@@ -126,16 +126,16 @@ const AdminDashboard = () => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 style={{ fontFamily: 'Syne, sans-serif', fontSize: '24px', fontWeight: 800, color: '#0f1f12', letterSpacing: '-0.02em', margin: 0 }}>
-                        System Overview
+                        Dashboard
                     </h1>
                     <p style={{ color: '#6b7280', fontSize: '13px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 500 }}>
                         <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }}></span>
-                        Real-time operational telemetry active
+                        Real-time updates active
                     </p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px', background: '#F0FDF4', border: '1.5px solid #BBF7D0', borderRadius: '100px' }}>
                     <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block', animation: 'pulse-dot 2s infinite' }}></span>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#15803d', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Global Protocol Active</span>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#15803d', letterSpacing: '0.08em', textTransform: 'uppercase' }}>System Active</span>
                 </div>
             </div>
 
@@ -145,13 +145,13 @@ const AdminDashboard = () => {
                     <StatCard label="Total Tickets" value={metrics.total} color="indigo" subtitle="Lifetime generated" customIcon={<TicketIcon />} />
                 </button>
                 <button onClick={() => navigate('/admin/tickets')} className="text-left group focus:outline-none">
-                    <StatCard label="Active Incidents" value={metrics.active} color="amber" subtitle="Requires attention" customIcon={<ActivityIcon />} />
+                    <StatCard label="Active Tickets" value={metrics.active} color="amber" subtitle="Need attention" customIcon={<ActivityIcon />} />
                 </button>
                 <button onClick={() => navigate('/admin/tickets?filter=auto')} className="text-left group focus:outline-none">
-                    <StatCard label="AI Auto-Resolved" value={metrics.autoResolved} color="emerald" subtitle="Success without human" customIcon={<CpuIcon />} />
+                    <StatCard label="AI Auto-Resolved" value={metrics.autoResolved} color="emerald" subtitle="Resolved by AI" customIcon={<CpuIcon />} />
                 </button>
                 <button onClick={() => navigate('/admin/tickets?filter=human')} className="text-left group focus:outline-none">
-                    <StatCard label="Human Escalations" value={metrics.humanEscalated} color="red" subtitle="Expert intervention" customIcon={<UsersIcon />} />
+                    <StatCard label="Escalated Tickets" value={metrics.humanEscalated} color="red" subtitle="Requires support agent" customIcon={<UsersIcon />} />
                 </button>
             </div>
 
@@ -161,7 +161,7 @@ const AdminDashboard = () => {
                     <div className="flex items-center justify-between px-2">
                         <h2 style={{ fontFamily: 'Syne, sans-serif', fontSize: '15px', fontWeight: 700, color: '#0f1f12', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                            Recent Ticket Activity
+                            Recent Tickets
                         </h2>
                     </div>
                     <div style={{ background: '#fff', borderRadius: '20px', border: '1px solid #f0fdf4', boxShadow: '0 2px 16px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
@@ -174,7 +174,7 @@ const AdminDashboard = () => {
                     <div className="px-2 flex items-center justify-between">
                         <h2 style={{ fontFamily: 'Syne, sans-serif', fontSize: '15px', fontWeight: 700, color: '#0f1f12', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
-                            AI System Health
+                            AI Status
                         </h2>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '100px', padding: '3px 10px' }}>
                             <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#22c55e', display: 'inline-block', animation: 'pulse-dot 2s infinite' }}></span>
@@ -201,11 +201,11 @@ const AdminDashboard = () => {
                                 </div>
                             ))}
                             <div className="pt-4 mt-4 border-t border-gray-100 flex flex-col items-center gap-2">
-                                <p style={{ fontSize: '10px', color: '#9ca3af', letterSpacing: '0.14em', fontWeight: 600, textTransform: 'uppercase' }}>All AI Nodes Synchronized</p>
+                                <p style={{ fontSize: '10px', color: '#9ca3af', letterSpacing: '0.14em', fontWeight: 600, textTransform: 'uppercase' }}>All systems operating normally</p>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: '#f8faf9', borderRadius: '100px', border: '1px solid #e5e7eb' }}>
                                     <Activity size={10} color="#9ca3af" />
                                     <span style={{ fontSize: '9px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                                        Last Telemetry Sync: {formatTimelineDate(new Date())}
+                                        Last Synced: {formatTimelineDate(new Date())}
                                     </span>
                                 </div>
                             </div>

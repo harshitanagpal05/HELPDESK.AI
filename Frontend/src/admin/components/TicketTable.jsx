@@ -59,7 +59,7 @@ const TicketTable = ({ tickets = [], isLoading = false, limit = null }) => {
             <table className="w-full border-collapse">
                 <thead>
                     <tr style={{ background: '#f8faf9', borderBottom: '1px solid #f0fdf4' }}>
-                        {['Request Identity', 'Incident Context', 'Category', 'Risk Factor', 'Assigned Ops', 'Status'].map((h, i) => (
+                        {['Ticket ID', 'Ticket Info', 'Category', 'Priority', 'Assigned Team', 'Status'].map((h, i) => (
                             <th key={i} style={{ padding: '14px 24px', textAlign: 'left', fontSize: '10px', color: '#9ca3af', letterSpacing: '0.1em', fontWeight: 600, textTransform: 'uppercase' }}>{h}</th>
                         ))}
                     </tr>
