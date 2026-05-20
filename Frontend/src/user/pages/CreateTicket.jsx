@@ -37,6 +37,7 @@ const CreateTicket = () => {
     const [extractedOCR, setExtractedOCR] = useState('');
     const [isOcrLoading, setIsOcrLoading] = useState(false);
     const [isListening, setIsListening] = useState(false);
+    const isListeningRef = useRef(false);
     const fileInputRef = useRef(null);
     const navigate = useNavigate();
     const location = useLocation();
@@ -70,6 +71,7 @@ const CreateTicket = () => {
 
     useEffect(() => {
         return () => {
+            isListeningRef.current = false;
             if (recognitionRef.current) recognitionRef.current.stop();
             if (audioContextRef.current) audioContextRef.current.close();
             if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
@@ -190,13 +192,22 @@ const CreateTicket = () => {
                 console.error("Speech Recognition Error:", event.error);
                 if (event.error !== 'no-speech') {
                     setError(`Microphone error: ${event.error}`);
+                    stopListening();
                 }
             };
 
             recognition.onend = () => {
-                // Only stop visualizer if we actually intended to stop
-                if (!isListening) {
-                    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+                if (isListeningRef.current) {
+                    try {
+                        recognitionRef.current?.start();
+                    } catch {
+                        // start() may throw if already running — safely ignore
+                    }
+                } else {
+                    if (animationFrameRef.current) {
+                        cancelAnimationFrame(animationFrameRef.current);
+                        animationFrameRef.current = null;
+                    }
                 }
             };
 
@@ -204,6 +215,7 @@ const CreateTicket = () => {
             recognition.start();
 
             setIsListening(true);
+            isListeningRef.current = true;
             setShowVoiceModal(true);
             setVoiceTranscript('');
             setInterimVoice('');
@@ -217,6 +229,7 @@ const CreateTicket = () => {
 
     const stopListening = () => {
         setIsListening(false);
+        isListeningRef.current = false;
         if (recognitionRef.current) {
             recognitionRef.current.stop();
             recognitionRef.current = null;
