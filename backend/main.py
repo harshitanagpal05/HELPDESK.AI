@@ -364,18 +364,29 @@ async def health_check():
 @app.get("/ready", response_model=ReadinessResponse)
 async def readiness_check():
     require_supabase = os.environ.get("REQUIRE_SUPABASE", "false").lower() == "true"
+    allow_degraded = os.environ.get("ALLOW_DEGRADED_STARTUP", "0") == "1"
+    
     checks = {
         "api": True,
         "classifier_loaded": classifier_service._loaded,
         "ner_loaded": ner_service._loaded,
-        "duplicate_index_loaded": duplicate_service._loaded,
-        "rag_loaded": rag_service._loaded,
+        "duplicate_index_loaded": duplicate_service.is_available(),
+        "rag_loaded": rag_service.is_available(),
     }
     if require_supabase:
         checks["supabase_configured"] = supabase is not None
 
-    if all(checks.values()):
-        return ReadinessResponse(status="ready", checks=checks)
+    # In degraded mode, duplicate and RAG services are optional
+    if allow_degraded:
+        required_checks = {k: v for k, v in checks.items() if k not in ["duplicate_index_loaded", "rag_loaded"]}
+        all_required_pass = all(required_checks.values())
+        
+        if all_required_pass:
+            return ReadinessResponse(status="ready", checks=checks)
+    else:
+        # Strict mode: all checks must pass
+        if all(checks.values()):
+            return ReadinessResponse(status="ready", checks=checks)
 
     return JSONResponse(
         status_code=503,
