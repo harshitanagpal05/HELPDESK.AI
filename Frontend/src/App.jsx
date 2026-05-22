@@ -54,6 +54,7 @@ import AdminUsers from "./admin/pages/AdminUsers";
 import AdminAnalytics from "./admin/pages/AdminAnalytics";
 import AdminProfile from "./admin/pages/AdminProfile";
 import AdminSettings from "./admin/pages/AdminSettings";
+import SLAPage from "./admin/pages/SLAPage";
 import MasterBugReports from "./master-admin/pages/MasterBugReports";
 
 // Feature Pages
@@ -78,7 +79,6 @@ import MasterAdminDashboard from "./master-admin/pages/MasterAdminDashboard";
 import PendingAdminRequests from "./master-admin/pages/PendingAdminRequests";
 import AllCompanies from "./master-admin/pages/AllCompanies";
 import AllAdmins from "./master-admin/pages/AllAdmins";
-import Changelog from "./pages/Changelog";
 
 
 function TitleUpdater() {
@@ -96,6 +96,7 @@ function TitleUpdater() {
     else if (path.startsWith('/admin/analytics')) title = 'Analytics | Admin';
     else if (path.startsWith('/admin/profile')) title = 'Admin Profile';
     else if (path.startsWith('/admin/settings')) title = 'Settings | Admin';
+    else if (path.startsWith('/admin/sla')) title = 'SLA Monitor | Admin';
     // Master Admin Routes
     else if (path.startsWith('/master-admin/dashboard')) title = 'Master Dashboard';
     else if (path.startsWith('/master-admin/admin-requests')) title = 'Pending Requests | Master Admin';
@@ -191,6 +192,7 @@ function AppLayout() {
             <Route path="/admin/analytics" element={<AdminAnalytics />} />
             <Route path="/admin/profile" element={<AdminProfile />} />
             <Route path="/admin/settings" element={<AdminSettings />} />
+            <Route path="/admin/sla" element={<SLAPage />} />
           </Route>
         </Route>
 
@@ -206,11 +208,6 @@ function App() {
 
   useEffect(() => {
     initialize();
-    // Dark mode initialize
-    const saved = localStorage.getItem('theme');
-    if (saved === 'dark') {
-      document.documentElement.classList.add('dark');
-    }
   }, [initialize]);
 
   return (
@@ -237,9 +234,6 @@ function App() {
         <Route path="/features/priority" element={<PriorityDetectionFeature />} />
         <Route path="/features/resolution" element={<SmartResolutionFeature />} />
 
-        {/* Resources Pages */}
-        <Route path="/changelog" element={<Changelog />} />
-        
         {/* Legal Pages */}
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
