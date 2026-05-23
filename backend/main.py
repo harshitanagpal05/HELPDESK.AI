@@ -146,12 +146,13 @@ class TicketSaveRequest(BaseModel):
     sla_breach_at: str
     sla_status: str | None = None
     escalation_level: int = 0
-    metadata: dict
+    metadata: dict = {}
     entities: list = []
     solution_steps: list = []
     ocr_text: str = ""
     needs_review: bool = False
-    routing_confidence: float
+    routing_confidence: float = 0.0
+
 
 
 class DuplicateInfo(BaseModel):
