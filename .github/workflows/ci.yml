@@ -25,6 +25,11 @@ jobs:
                   cd Frontend
                   npm install
 
+                        - name: Lint Frontend
+                            run: |
+                                    cd Frontend
+                                    npm run lint
+
             - name: Guard Against Frontend AI Secret Leakage
               run: |
                   cd Frontend
