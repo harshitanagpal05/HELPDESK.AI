@@ -7,7 +7,13 @@ import uuid
 import os
 from typing import Any
 
-from sentence_transformers import SentenceTransformer, util
+try:
+    from sentence_transformers import SentenceTransformer, util
+    _HAS_SENTENCE = True
+except Exception:  # pragma: no cover - optional runtime dependency
+    SentenceTransformer = None
+    util = None
+    _HAS_SENTENCE = False
 
 SIMILARITY_THRESHOLD = 0.70
 
@@ -32,6 +38,17 @@ class DuplicateService:
             return
         
         print("[DuplicateService] Loading model...")
+        if not _HAS_SENTENCE:
+            allow_degraded = os.environ.get("ALLOW_DEGRADED_STARTUP", "0") == "1"
+            self._load_failed = True
+            print("[DuplicateService] sentence-transformers not installed")
+            if allow_degraded:
+                print("[DuplicateService] DEGRADED: Continuing without model (ALLOW_DEGRADED_STARTUP=1)")
+                self.model = None
+                self._loaded = False
+                return
+            else:
+                raise ImportError("sentence-transformers is required for DuplicateService")
         try:
             # Check if a local model path is provided
             model_path = os.environ.get("SENTENCE_TRANSFORMER_MODEL_PATH")
