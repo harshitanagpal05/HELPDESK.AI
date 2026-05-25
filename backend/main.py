@@ -36,6 +36,13 @@ from dotenv import load_dotenv
 env_path = Path(__file__).parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
+# CI smoke tests allow degraded startup so the app can import without heavy ML assets.
+ALLOW_DEGRADED_STARTUP = os.environ.get("ALLOW_DEGRADED_STARTUP", "0") == "1"
+
+
+def _startup_fatal(message: str) -> None:
+    print(f"[Startup-FATAL] {message}")
+
 # Initialize Supabase Client (Service Role for backend bypass)
 try:
     from supabase import create_client, Client
