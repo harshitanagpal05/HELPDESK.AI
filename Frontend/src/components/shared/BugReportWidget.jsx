@@ -207,6 +207,8 @@ const BugReportWidget = ({ advanced = false, customTrigger = null }) => {
             // html2canvas options for partial capture
             const canvas = await html2canvas(document.body, {
                 useCORS: true,
+                allowTaint: false,
+                backgroundColor: null,
                 logging: false,
                 x: left + window.scrollX,
                 y: top + window.scrollY,
