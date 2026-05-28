@@ -3,7 +3,7 @@
  */
 
 const getBackendUrl = () => {
-    const envUrl = import.meta.env.VITE_BACKEND_URL;
+    const envUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL;
     if (envUrl) return envUrl.trim().replace(/\/$/, '');
 
     // Default fallback — override via VITE_BACKEND_URL env var
