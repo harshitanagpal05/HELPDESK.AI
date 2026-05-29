@@ -335,6 +335,7 @@ class TicketRequest(BaseModel):
     image_text: str = "" # Keep for backward compatibility
     user_id: str | None = None
     company: str | None = None
+    company_id: str | None = None
     image_url: str | None = None
     confidence_threshold: float = 0.20
     duplicate_sensitivity: float = 0.85
@@ -1465,10 +1466,10 @@ async def analyze_only(request_body: TicketRequest):
     translation_ctx = await detect_and_translate_ticket_text(text)
     text = translation_ctx["text_for_analysis"]
     print(f"[AI] Starting Analysis (READ-ONLY) for: {text[:50]}...") 
-    settings = get_system_settings(request_body.company)
-    confidence_threshold = settings["ai_confidence_threshold"]
-    duplicate_sensitivity = settings["duplicate_sensitivity"]
-    enable_auto_resolve = settings["enable_auto_resolve"]
+    settings = get_system_settings(request_body.company_id or request_body.company)
+    confidence_threshold = settings.get("ai_confidence_threshold", 0.80)
+    duplicate_sensitivity = settings.get("duplicate_sensitivity", 0.85)
+    enable_auto_resolve = settings.get("enable_auto_resolve", False)
 
     # --- Vague Input Guard ---
     # If the text is extremely short or a generic term, skip AI classification and
@@ -1553,6 +1554,8 @@ async def analyze_only(request_body: TicketRequest):
 
     # --- Classification ---
     classification = classify_ticket_text(text)
+    if not enable_auto_resolve:
+        classification["auto_resolve"] = False
 
     timeline["ai_analyzed"] = get_now_ist()
     timeline["triaged"] = get_now_ist()
@@ -1699,7 +1702,14 @@ async def analyze_stream(request_body: TicketRequest):
         # 3. Classification
         yield f"data: {json.dumps({'step': 'Detecting category and priority', 'status': 'in_progress'})}\n\n"
         await asyncio.sleep(0.2)
+        
+        settings = get_system_settings(request_body.company_id or request_body.company)
+        enable_auto_resolve = settings.get("enable_auto_resolve", False)
+        
         classification = classify_ticket_text(text)
+        if not enable_auto_resolve:
+            classification["auto_resolve"] = False
+            
         timeline["ai_analyzed"] = get_now_ist()
         timeline["triaged"] = get_now_ist()
 
