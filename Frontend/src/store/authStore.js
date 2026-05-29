@@ -236,6 +236,27 @@ const useAuthStore = create(
                 }
             },
 
+            signInWithGoogle: async () => {
+                set({ loading: true });
+                console.log("Attempting Google OAuth login");
+                try {
+                    const { error } = await supabase.auth.signInWithOAuth({
+                        provider: 'google',
+                        options: {
+                            redirectTo: `${window.location.origin}/dashboard`
+                        }
+                    });
+
+                    if (error) throw error;
+                    return true;
+                } catch (error) {
+                    console.error("Google OAuth operation failed:", error.message);
+                    throw error;
+                } finally {
+                    set({ loading: false });
+                }
+            },
+
             verifyOtpAndLogin: async (email, token, type = 'magiclink') => {
                 set({ loading: true });
                 console.log("Attempting OTP verification for:", email);

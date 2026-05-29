@@ -133,6 +133,20 @@ function Login() {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setError("");
+    try {
+      await signInWithGoogle();
+    } catch (err) {
+      console.error("Google login error:", err);
+      let errMsg = err.message || "Failed to sign in with Google.";
+      if (errMsg.toLowerCase().includes("failed to fetch")) {
+        errMsg = "Network Error: Failed to fetch. Please try disabling your ad-blocker for this site and refresh!";
+      }
+      setError(errMsg);
+    }
+  };
+
   const currentSubmitHandler = isMagicLink ? handleMagicLink : handleLogin;
 
   return (
