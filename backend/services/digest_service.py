@@ -6,7 +6,9 @@ import urllib.error
 import json
 import asyncio
 from collections import Counter
+from pathlib import Path
 from typing import Dict, List, Optional
+from string import Template
 
 # Try to import from main to reuse supabase/gemini_service singletons if possible
 try:
@@ -20,6 +22,10 @@ logger = logging.getLogger(__name__)
 # Default Resend configurations
 DEFAULT_SENDER = "Helpdesk.AI <onboarding@resend.dev>"
 
+# Template directory
+TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
+
+
 def get_weekly_stats(company_id: str) -> dict:
     """
     Query tickets table from Supabase for the last 7 days and compute weekly metrics.
@@ -32,8 +38,10 @@ def get_weekly_stats(company_id: str) -> dict:
         "sla_breaches": 0,
         "top_categories": [],
         "open_tickets": 0,
+        "pending_tickets": 0,
         "company_name": "Your Company",
-        "date_range_str": ""
+        "date_range_str": "",
+        "team_performance": [],
     }
 
     # Fallback to local import if global failed
@@ -67,7 +75,7 @@ def get_weekly_stats(company_id: str) -> dict:
     try:
         # Fetch tickets from last 7 days for the company
         res = supabase.table("tickets").select(
-            "id, status, priority, category, created_at, updated_at, closed_at, sla_status"
+            "id, status, priority, category, assigned_team, created_at, updated_at, closed_at, sla_status"
         ).eq("company_id", company_id).gte("created_at", seven_days_ago_iso).execute()
 
         tickets = res.data or []
@@ -81,15 +89,35 @@ def get_weekly_stats(company_id: str) -> dict:
         sla_breach_count = 0
         categories = []
         open_count = 0
+        pending_count = 0
+
+        # Team performance tracking
+        team_stats: Dict[str, dict] = {}
 
         for t in tickets:
             status = str(t.get("status", "")).lower()
             category = t.get("category") or "Unclassified"
+            assigned_team = t.get("assigned_team") or "Unassigned"
             categories.append(category)
+
+            # Initialize team stats if not present
+            if assigned_team not in team_stats:
+                team_stats[assigned_team] = {
+                    "team": assigned_team,
+                    "total": 0,
+                    "resolved": 0,
+                    "open": 0,
+                    "pending": 0,
+                    "durations": [],
+                    "sla_breaches": 0,
+                }
+
+            team_stats[assigned_team]["total"] += 1
 
             # Check if ticket was resolved/closed
             if status in ("resolved", "closed"):
                 resolved_count += 1
+                team_stats[assigned_team]["resolved"] += 1
                 
                 # Try parsing timestamps to compute resolution duration
                 created_str = t.get("created_at")
@@ -101,19 +129,26 @@ def get_weekly_stats(company_id: str) -> dict:
                         # Clean Z format or offset format to ensure parsing
                         c_dt = datetime.datetime.fromisoformat(created_str.replace("Z", "+00:00"))
                         e_dt = datetime.datetime.fromisoformat(end_str.replace("Z", "+00:00"))
-                        diff = (e_dt - c_dt).total_seconds() / 60.0 # in minutes
+                        diff = (e_dt - c_dt).total_seconds() / 60.0  # in minutes
                         if diff >= 0:
                             durations.append(diff)
+                            team_stats[assigned_team]["durations"].append(diff)
                     except Exception:
                         pass
+            elif status == "pending":
+                pending_count += 1
+                team_stats[assigned_team]["pending"] += 1
             else:
                 open_count += 1
+                team_stats[assigned_team]["open"] += 1
 
             if str(t.get("sla_status", "")).lower() == "breached":
                 sla_breach_count += 1
+                team_stats[assigned_team]["sla_breaches"] += 1
 
         stats["resolved_tickets"] = resolved_count
         stats["open_tickets"] = open_count
+        stats["pending_tickets"] = pending_count
         stats["sla_breaches"] = sla_breach_count
 
         if stats["total_tickets"] > 0:
@@ -138,10 +173,45 @@ def get_weekly_stats(company_id: str) -> dict:
             {"category": cat, "count": count} for cat, count in cat_counts
         ]
 
+        # Build team performance list sorted by total tickets descending
+        team_performance = []
+        for team_name, ts in sorted(team_stats.items(), key=lambda x: x[1]["total"], reverse=True):
+            team_resolved = ts["resolved"]
+            team_total = ts["total"]
+            team_rate = round((team_resolved / team_total) * 100, 1) if team_total > 0 else 0.0
+
+            # Format avg resolution time per team
+            team_avg_str = "N/A"
+            if ts["durations"]:
+                avg_min = sum(ts["durations"]) / len(ts["durations"])
+                if avg_min < 60:
+                    team_avg_str = f"{int(avg_min)}m"
+                else:
+                    avg_hrs = avg_min / 60.0
+                    if avg_hrs < 24:
+                        team_avg_str = f"{avg_hrs:.1f}h"
+                    else:
+                        avg_days = avg_hrs / 24.0
+                        team_avg_str = f"{avg_days:.1f}d"
+
+            team_performance.append({
+                "team": team_name,
+                "total": team_total,
+                "resolved": team_resolved,
+                "open": ts["open"],
+                "pending": ts["pending"],
+                "resolution_rate": team_rate,
+                "avg_resolution_time": team_avg_str,
+                "sla_breaches": ts["sla_breaches"],
+            })
+
+        stats["team_performance"] = team_performance
+
     except Exception as e:
         logger.error(f"[Digest] Error building weekly stats: {e}")
 
     return stats
+
 
 def generate_ai_summary(stats: dict) -> str:
     """
@@ -168,20 +238,33 @@ def generate_ai_summary(stats: dict) -> str:
         return fallback_summary
     try:
         top_cats_str = ", ".join([f"{c['category']} ({c['count']})" for c in stats.get('top_categories', [])])
+        
+        # Build team performance context for AI
+        team_lines = []
+        for tm in stats.get("team_performance", []):
+            team_lines.append(
+                f"  - {tm['team']}: {tm['total']} tickets, {tm['resolution_rate']}% resolved, "
+                f"avg {tm['avg_resolution_time']}, {tm['sla_breaches']} SLA breaches"
+            )
+        team_context = "\n".join(team_lines) if team_lines else "  No team data available."
+
         # Build prompt
         prompt = (
             "You are a professional IT support manager assistant. "
             "Analyze the following helpdesk statistics for the past week and write a concise, "
             "insightful 3-sentence summary of the helpdesk health. "
-            "Highlight any major bottlenecks (like SLA breaches or high-volume categories) and provide a professional recommendation.\n\n"
+            "Highlight any major bottlenecks (like SLA breaches or high-volume categories) and "
+            "mention standout team performance. Provide a professional recommendation.\n\n"
             f"Company: {stats['company_name']}\n"
             f"Tickets Created: {stats['total_tickets']}\n"
             f"Tickets Resolved: {stats['resolved_tickets']}\n"
+            f"Tickets Pending: {stats.get('pending_tickets', 0)}\n"
             f"Resolution Rate: {stats['resolution_rate']}%\n"
             f"Average Resolution Time: {stats['avg_resolution_time_str']}\n"
             f"SLA Breaches: {stats['sla_breaches']}\n"
             f"Top Categories: {top_cats_str}\n"
-            f"Open/Active Tickets remaining: {stats['open_tickets']}\n\n"
+            f"Open/Active Tickets remaining: {stats['open_tickets']}\n"
+            f"Team Performance:\n{team_context}\n\n"
             "Return only the 3-sentence summary without any headers or intro text."
         )
 
@@ -194,9 +277,85 @@ def generate_ai_summary(stats: dict) -> str:
         logger.error(f"[Digest] Gemini summary generation failed: {e}")
         return fallback_summary
 
+
+def _build_team_performance_html(team_performance: list) -> str:
+    """Build HTML rows for the team performance table."""
+    if not team_performance:
+        return '<p style="color: #6b7280; margin: 0; font-size: 14px;">No team data recorded this week.</p>'
+
+    rows = []
+    for tm in team_performance:
+        # Color-code resolution rate
+        rate = tm.get("resolution_rate", 0)
+        if rate >= 80:
+            rate_color = "#059669"  # green
+        elif rate >= 50:
+            rate_color = "#d97706"  # amber
+        else:
+            rate_color = "#dc2626"  # red
+
+        # Color-code SLA breaches
+        breaches = tm.get("sla_breaches", 0)
+        breach_color = "#dc2626" if breaches > 0 else "#6b7280"
+
+        rows.append(
+            f'<tr style="border-bottom: 1px solid #f3f4f6;">'
+            f'<td style="padding: 10px 12px; font-weight: 600; color: #111827;">{tm["team"]}</td>'
+            f'<td style="padding: 10px 12px; text-align: center;">{tm["total"]}</td>'
+            f'<td style="padding: 10px 12px; text-align: center;">{tm["resolved"]}</td>'
+            f'<td style="padding: 10px 12px; text-align: center; color: {rate_color}; font-weight: 600;">{tm["resolution_rate"]}%</td>'
+            f'<td style="padding: 10px 12px; text-align: center;">{tm["avg_resolution_time"]}</td>'
+            f'<td style="padding: 10px 12px; text-align: center; color: {breach_color}; font-weight: 600;">{breaches}</td>'
+            f'</tr>'
+        )
+
+    header = (
+        '<table style="width: 100%; border-collapse: collapse; font-size: 13px;">'
+        '<thead><tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">'
+        '<th style="padding: 10px 12px; text-align: left; color: #6b7280; font-weight: 600;">Team</th>'
+        '<th style="padding: 10px 12px; text-align: center; color: #6b7280; font-weight: 600;">Total</th>'
+        '<th style="padding: 10px 12px; text-align: center; color: #6b7280; font-weight: 600;">Resolved</th>'
+        '<th style="padding: 10px 12px; text-align: center; color: #6b7280; font-weight: 600;">Rate</th>'
+        '<th style="padding: 10px 12px; text-align: center; color: #6b7280; font-weight: 600;">Avg Time</th>'
+        '<th style="padding: 10px 12px; text-align: center; color: #6b7280; font-weight: 600;">SLA Breaches</th>'
+        '</tr></thead><tbody>'
+    )
+    footer = '</tbody></table>'
+    return header + "".join(rows) + footer
+
+
+def _build_category_list_html(top_categories: list) -> str:
+    """Build HTML for top categories list."""
+    cat_items = []
+    for item in top_categories:
+        cat_items.append(
+            f'<div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px;">'
+            f'  <span style="color: #4b5563;">{item["category"]}</span>'
+            f'  <span style="font-weight: 600; color: #111827;">{item["count"]} tickets</span>'
+            f'</div>'
+        )
+    return (
+        "\n".join(cat_items)
+        if cat_items
+        else '<p style="color: #6b7280; margin: 0; font-size: 14px;">No category data recorded.</p>'
+    )
+
+
+def _load_email_template() -> str:
+    """Load the HTML email template from the templates directory."""
+    template_path = TEMPLATE_DIR / "weekly_digest.html"
+    if template_path.exists():
+        return template_path.read_text(encoding="utf-8")
+    # Fallback: minimal template
+    logger.warning(f"[Digest] Template not found at {template_path}. Using inline fallback.")
+    return """<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Weekly Digest</title></head>
+<body><div>${header_content}</div><div>${body_content}</div><div>${footer_content}</div></body></html>"""
+
+
 def send_digest_email(admin_email: str, stats: dict, ai_summary: str) -> bool:
     """
-    Format the HTML digest template and dispatch using the Resend REST API.
+    Format the HTML digest template and dispatch using the Resend API.
     """
     resend_api_key = os.getenv("RESEND_API_KEY", "").strip()
     if not resend_api_key:
@@ -208,113 +367,37 @@ def send_digest_email(admin_email: str, stats: dict, ai_summary: str) -> bool:
     # Style SLA parameters dynamically based on breaches
     sla_count = stats.get("sla_breaches", 0)
     if sla_count > 0:
-        sla_border_color = "#fca5a5" # light red
-        sla_text_color = "#dc2626"   # bold red
+        sla_border_color = "#fca5a5"  # light red
+        sla_text_color = "#dc2626"    # bold red
     else:
-        sla_border_color = "#e5e7eb" # gray
-        sla_text_color = "#111827"   # dark gray
+        sla_border_color = "#e5e7eb"  # gray
+        sla_text_color = "#111827"    # dark gray
 
-    # Build top categories HTML
-    cat_items = []
-    for item in stats.get("top_categories", []):
-        cat_items.append(
-            f'<div class="category-item">'
-            f'  <span class="category-name">{item["category"]}</span>'
-            f'  <span class="category-count">{item["count"]} tickets</span>'
-            f'</div>'
-        )
-    category_list_html = "\n".join(cat_items) if cat_items else '<p style="color: #6b7280; margin: 0; font-size: 14px;">No category data recorded.</p>'
+    # Build component HTML
+    category_list_html = _build_category_list_html(stats.get("top_categories", []))
+    team_performance_html = _build_team_performance_html(stats.get("team_performance", []))
 
-    # Load and format email template
-    email_html = f"""<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Weekly Helpdesk Digest</title>
-  <style>
-    body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f9fafb; margin: 0; padding: 20px; color: #1f2937; }}
-    .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); border: 1px solid #e5e7eb; }}
-    .header {{ background: linear-gradient(135deg, #064e3b, #047857); padding: 32px 24px; text-align: center; color: #ffffff; }}
-    .header h1 {{ margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.025em; }}
-    .header p {{ margin: 8px 0 0 0; opacity: 0.85; font-size: 14px; }}
-    .content {{ padding: 32px 24px; }}
-    .ai-summary {{ background-color: #ecfdf5; border-left: 4px solid #10b981; padding: 16px 20px; border-radius: 4px; margin-bottom: 28px; }}
-    .ai-summary h3 {{ margin: 0 0 8px 0; color: #065f46; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }}
-    .ai-summary p {{ margin: 0; color: #047857; font-size: 15px; line-height: 1.6; font-style: italic; }}
-    .stats-table {{ width: 100%; border-collapse: separate; border-spacing: 12px; margin-bottom: 20px; }}
-    .stat-card {{ background: #f3f4f6; border-radius: 8px; padding: 16px; border: 1px solid #e5e7eb; text-align: center; }}
-    .stat-val {{ font-size: 28px; font-weight: 700; color: #111827; line-height: 1; margin-bottom: 4px; }}
-    .stat-label {{ font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em; }}
-    .section-title {{ font-size: 16px; font-weight: 700; color: #111827; margin: 0 0 12px 0; padding-bottom: 6px; border-bottom: 1px solid #f3f4f6; }}
-    .category-item {{ display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }}
-    .category-name {{ color: #4b5563; }}
-    .category-count {{ font-weight: 600; color: #111827; }}
-    .footer {{ background: #f9fafb; padding: 24px; text-align: center; font-size: 12px; color: #9ca3af; border-top: 1px solid #e5e7eb; }}
-    .footer a {{ color: #10b981; text-decoration: none; font-weight: 600; }}
-    .btn {{ display: inline-block; background-color: #10b981; color: #ffffff !important; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 600; font-size: 14px; margin-top: 16px; text-align: center; }}
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>Weekly Operations Digest</h1>
-      <p>Helpdesk.AI performance insight for the week of {stats['date_range_str']}</p>
-    </div>
-    <div class="content">
-      <div class="ai-summary">
-        <h3>🤖 AI-Generated Weekly Insight</h3>
-        <p>"{ai_summary}"</p>
-      </div>
-      
-      <div class="section-title">📊 Key Metrics Overview</div>
-      <table class="stats-table">
-        <tr>
-          <td width="50%">
-            <div class="stat-card">
-              <div class="stat-val">{stats['total_tickets']}</div>
-              <div class="stat-label">Tickets Created</div>
-            </div>
-          </td>
-          <td width="50%">
-            <div class="stat-card">
-              <div class="stat-val">{stats['resolution_rate']}%</div>
-              <div class="stat-label">Resolution Rate</div>
-            </div>
-          </td>
-        </tr>
-        <tr>
-          <td>
-            <div class="stat-card">
-              <div class="stat-val">{stats['avg_resolution_time_str']}</div>
-              <div class="stat-label">Avg Resolution</div>
-            </div>
-          </td>
-          <td>
-            <div class="stat-card" style="border-color: {sla_border_color};">
-              <div class="stat-val" style="color: {sla_text_color};">{stats['sla_breaches']}</div>
-              <div class="stat-label">SLA Breaches</div>
-            </div>
-          </td>
-        </tr>
-      </table>
+    # Load template and substitute values
+    template_str = _load_email_template()
 
-      <div class="section-title" style="margin-top: 24px;">🏆 Top Ticket Categories</div>
-      <div style="background: #ffffff; padding: 12px 16px; border: 1px solid #e5e7eb; border-radius: 8px;">
-        {category_list_html}
-      </div>
-
-      <div style="text-align: center; margin-top: 12px;">
-        <a href="https://helpdeskaiv1.vercel.app/" class="btn">Launch Admin Dashboard</a>
-      </div>
-    </div>
-    <div class="footer">
-      <p>This email was automatically generated and sent to you because you are a company administrator for {stats['company_name']}.</p>
-      <p>To opt-out, update your <a href="https://helpdeskaiv1.vercel.app/admin-settings">Admin Settings</a>.</p>
-    </div>
-  </div>
-</body>
-</html>
-"""
+    # Use string.Template for safe substitution ($-based)
+    tmpl = Template(template_str)
+    email_html = tmpl.safe_substitute(
+        date_range=stats.get("date_range_str", ""),
+        company_name=stats.get("company_name", "Your Company"),
+        ai_summary=ai_summary,
+        total_tickets=stats.get("total_tickets", 0),
+        resolution_rate=stats.get("resolution_rate", 0.0),
+        avg_resolution_time=stats.get("avg_resolution_time_str", "N/A"),
+        sla_breaches=sla_count,
+        sla_border_color=sla_border_color,
+        sla_text_color=sla_text_color,
+        pending_tickets=stats.get("pending_tickets", 0),
+        open_tickets=stats.get("open_tickets", 0),
+        resolved_tickets=stats.get("resolved_tickets", 0),
+        category_list_html=category_list_html,
+        team_performance_html=team_performance_html,
+    )
 
     # Dispatch via Resend API POST
     payload = {
@@ -345,6 +428,7 @@ def send_digest_email(admin_email: str, stats: dict, ai_summary: str) -> bool:
         logger.error(f"[Digest] Resend mail transmission failure: {e}")
         
     return False
+
 
 async def digest_scheduler_loop_async(supabase_client, interval_seconds=3600):
     """

@@ -728,6 +728,10 @@ app.add_middleware(
 
 app.include_router(auth_cookie_router)
 
+# Weekly Digest email route
+from backend.routes.weekly_digest import router as weekly_digest_router
+app.include_router(weekly_digest_router)
+
 
 # ---------------------------------------------------------------------------
 # Root & Health check
@@ -1962,47 +1966,7 @@ async def trigger_sla_check():
     return {"status": "triggered", "message": "SLA check cycle started in background"}
 
 
-# ---------------------------------------------------------------------------
-# Weekly Digest Endpoints
-# ---------------------------------------------------------------------------
 
-class DigestSendRequest(BaseModel):
-    company_id: str
-    email: str
-
-@app.get("/api/digest/preview/{company_id}")
-async def preview_weekly_digest(company_id: str):
-    """Generate and return preview stats and AI summary for the weekly digest."""
-    from backend.services.digest_service import get_weekly_stats, generate_ai_summary
-    stats = get_weekly_stats(company_id)
-    summary = generate_ai_summary(stats)
-    return {"stats": stats, "ai_summary": summary}
-
-@app.post("/api/digest/send-now")
-async def trigger_weekly_digest(body: DigestSendRequest):
-    """Manually trigger the dispatch of a weekly operations digest email."""
-    from backend.services.digest_service import get_weekly_stats, generate_ai_summary, send_digest_email
-    stats = get_weekly_stats(body.company_id)
-    summary = generate_ai_summary(stats)
-    success = send_digest_email(body.email, stats, summary)
-    
-    if not success:
-        raise HTTPException(
-            status_code=500, 
-            detail="Failed to send digest email. Check if RESEND_API_KEY is configured."
-        )
-        
-    # Track the last sent timestamp in settings
-    if supabase:
-        try:
-            supabase.table("system_settings").update({
-                "digest_last_sent": datetime.datetime.now(datetime.timezone.utc).isoformat()
-            }).eq("company_id", body.company_id).execute()
-        except Exception as e:
-            logger = logging.getLogger(__name__)
-            logger.warning(f"[Digest] Failed to update digest_last_sent: {e}")
-            
-    return {"status": "success", "recipient": body.email}
 
 
 # ---------------------------------------------------------------------------
