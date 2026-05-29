@@ -668,11 +668,11 @@ async def lifespan(app: FastAPI):
         print(f"[WARNING] Redis cache not available: {e}")
     try:
         classifier_service.load()
-    except FileNotFoundError as e:
+    except Exception as e:
         print(f"[WARNING] Classifier not loaded: {e}")
     try:
         ner_service.load()
-    except FileNotFoundError as e:
+    except Exception as e:
         print(f"[WARNING] NER not loaded: {e}")
     try:
         duplicate_service.load()
