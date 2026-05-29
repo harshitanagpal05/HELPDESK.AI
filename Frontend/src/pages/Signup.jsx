@@ -114,6 +114,7 @@ function Signup() {
       if (!/[a-z]/.test(pw)) return 'Password must contain at least one lowercase letter (a-z).';
       if (!/[A-Z]/.test(pw)) return 'Password must contain at least one uppercase letter (A-Z).';
       if (!/[0-9]/.test(pw)) return 'Password must contain at least one number (0-9).';
+      if (!/[^A-Za-z0-9]/.test(pw)) return 'Password must contain at least one special character.';
       return null;
     };
 

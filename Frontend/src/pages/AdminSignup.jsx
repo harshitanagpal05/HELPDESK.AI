@@ -67,6 +67,7 @@ function AdminSignup() {
         if (!/[a-z]/.test(pw)) return 'Password must contain at least one lowercase letter (a-z).';
         if (!/[A-Z]/.test(pw)) return 'Password must contain at least one uppercase letter (A-Z).';
         if (!/[0-9]/.test(pw)) return 'Password must contain at least one number (0-9).';
+        if (!/[^A-Za-z0-9]/.test(pw)) return 'Password must contain at least one special character.';
         return null; // valid
     };
 
@@ -125,6 +126,13 @@ function AdminSignup() {
         e.preventDefault();
         if (!formData.agreedToTerms || !formData.isAuthorized) {
             setError("You must agree to the terms and authorize company registration.");
+            return;
+        }
+
+        const pwError = validatePassword(formData.password);
+        if (pwError) {
+            setError(pwError);
+            setStep(1);
             return;
         }
 
@@ -344,7 +352,7 @@ function AdminSignup() {
                         </motion.div>
                     )}
 
-                    <form onSubmit={handleSubmit}>
+                    <form onSubmit={(e) => { e.preventDefault(); if (step === 3) handleSubmit(e); else nextStep(); }}>
                         <AnimatePresence mode="wait">
                             {/* STEP 1: PERSONAL INFO */}
                             {step === 1 && (
