@@ -24,7 +24,7 @@ const steps = [
 const AIProcessing = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const { text, image_text, image_base64, template_id, template_used, user_modified, ticket_title, original_text, original_language } = location.state || {};
+    const { text, image_text, image_base64, template_id, template_used, user_modified, ticket_title, original_text, original_language, source } = location.state || {};
     const setAITicket = useTicketStore((state) => state.setAITicket);
     const { settings } = useAdminStore();
     const { user, profile } = useAuthStore();
@@ -123,6 +123,9 @@ const AIProcessing = () => {
                     ticket_title: ticket_title || null,
                 };
 
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 6000);
+
                 const response = await fetch(
                     `${API_CONFIG.BACKEND_URL}/ai/analyze_stream`,
                     {
@@ -130,9 +133,11 @@ const AIProcessing = () => {
                         headers: {
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify(payload)
+                        body: JSON.stringify(payload),
+                        signal: controller.signal
                     }
                 );
+                clearTimeout(timeoutId);
 
                 if (!response.ok) {
                     throw new Error("Backend streaming failed");
@@ -279,7 +284,8 @@ const AIProcessing = () => {
                     originalIssue: original_text || text,
                     originalLanguage: original_language || 'en',
                     capturedFileBase64: image_base64,
-                    ocrText: image_text
+                    ocrText: image_text,
+                    image_url: uploadedImageUrl || finalTicket?.image_url || null
                 };
 
                 setAITicket(aiTicketObject);
@@ -350,7 +356,8 @@ const AIProcessing = () => {
                         originalIssue: original_text || text,
                         originalLanguage: original_language || 'en',
                         capturedFileBase64: image_base64,
-                        ocrText: image_text
+                        ocrText: image_text,
+                        image_url: uploadedImageUrl || null
                     };
 
                     setAITicket(fallbackTicket);

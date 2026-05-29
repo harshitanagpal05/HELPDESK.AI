@@ -217,7 +217,9 @@ const AppContent = () => {
       }
     };
 
-    initialize();
+    initialize().catch((e) => {
+      console.log('Init error', e);
+    });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);

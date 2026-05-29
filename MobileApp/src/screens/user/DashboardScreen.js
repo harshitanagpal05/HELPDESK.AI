@@ -113,17 +113,17 @@ const DashboardScreen = () => {
     }
   }, []);
 
-  useEffect(() => { 
-    fetchData(); 
+  useEffect(() => {
+    fetchData().catch((e) => console.error('Dashboard fetch error:', e));
 
     // Subscribe to ticket changes
     const ticketsChannel = supabase
       .channel('dashboard_tickets')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'tickets' 
-      }, () => fetchData())
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'tickets'
+      }, () => fetchData().catch((e) => console.error('Dashboard fetch error:', e)))
       .subscribe();
 
     // Subscribe to notifications changes
@@ -158,7 +158,10 @@ const DashboardScreen = () => {
     };
   }, [fetchData]);
 
-  const onRefresh = () => { setRefreshing(true); fetchData(); };
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchData().catch((e) => console.error('Dashboard fetch error:', e));
+  };
 
   const totalTickets = tickets.length;
   const activeTickets = tickets.filter(t => t.status !== 'resolved').length;

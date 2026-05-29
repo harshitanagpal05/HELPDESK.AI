@@ -116,6 +116,13 @@ function TitleUpdater() {
     else if (path === '/my-tickets') title = 'My Tickets';
     else if (path === '/profile') title = 'User Profile';
     else if (path === '/notifications') title = 'Notifications';
+    else if (path === '/docs') title = 'Documentation';
+    else if (path === '/api-reference') title = 'API Reference';
+    else if (path === '/changelog') title = 'Changelog';
+    else if (path === '/status') title = 'Status';
+    else if (path === '/about') title = 'About Us';
+    else if (path === '/careers') title = 'Careers';
+    else if (path === '/cookie-policy') title = 'Cookie Policy';
     // Public / Lobby Routes
     else if (path === '/login') title = 'Login';
     else if (path === '/signup') title = 'Create Account';
@@ -212,8 +219,33 @@ function App() {
   const { initialize } = useAuthStore();
 
   useEffect(() => {
-    initialize();
+    initialize().catch((err) => {
+      console.error('Auth initialize failed:', err);
+    });
   }, [initialize]);
+
+  const isDocsSubdomain = window.location.hostname.startsWith('docs.');
+
+  if (isDocsSubdomain) {
+    return (
+      <BrowserRouter>
+        <TitleUpdater />
+        <ScrollToTop />
+        <ScrollToTopButton />
+        <Toaster />
+        <BugReportWidget />
+        <BackToTop />
+        <Routes>
+          <Route path="/" element={<DocsPortal />} />
+          <Route path="/docs" element={<Navigate to="/" replace />} />
+          <Route path="/api-reference" element={<ApiReference />} />
+          <Route path="/changelog" element={<Changelog />} />
+          <Route path="/status" element={<StatusPage />} />
+          <Route path="*" element={<DocsPortal />} />
+        </Routes>
+      </BrowserRouter>
+    );
+  }
 
   return (
     <BrowserRouter>

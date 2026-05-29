@@ -115,6 +115,13 @@ const TopNav = () => {
                             <Link to="/profile" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 text-lg font-bold text-gray-700 dark:text-gray-200 hover:text-emerald-700 transition-colors">
                                 <UserIcon size={20} className="text-gray-400" /> My Profile
                             </Link>
+                            <Link
+                                to="/docs"
+                                onClick={() => setIsMenuOpen(false)}
+                                className="flex items-center gap-3 text-lg font-bold text-gray-700 hover:text-emerald-700 transition-colors"
+                            >
+                                <BookOpen size={20} className="text-gray-400" /> Documentation
+                            </Link>
                         </div>
 
                         <div className="pt-6 border-t border-gray-50 dark:border-gray-700">

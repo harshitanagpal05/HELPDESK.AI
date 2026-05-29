@@ -38,7 +38,7 @@ class TestOCRServiceInputValidation:
         """Test that valid base64 data is processed"""
         svc = OCRService()
 
-        with patch('base64.b64decode', return_value=b'fake_image_data'):
+        with patch('base64.b64decode', return_value=b'fake_image_data') as mock_decode:
             with patch('backend.services.ocr_service._get_reader') as mock_get_reader:
                 mock_reader = MagicMock()
                 mock_reader.readtext.return_value = ["extracted text"]
@@ -46,3 +46,42 @@ class TestOCRServiceInputValidation:
 
                 result = svc.extract_text("dGVzdCBkYXRh")
                 assert result == "extracted text"
+                mock_decode.assert_called_once_with("dGVzdCBkYXRh")
+
+    def test_extract_text_strips_data_uri_prefix(self):
+        """Test that data URI prefix (e.g. data:image/png;base64,) is stripped before decoding"""
+        svc = OCRService()
+
+        with patch('base64.b64decode', return_value=b'fake_image_data') as mock_decode:
+            with patch('backend.services.ocr_service._get_reader') as mock_get_reader:
+                mock_reader = MagicMock()
+                mock_reader.readtext.return_value = ["extracted text from data uri"]
+                mock_get_reader.return_value = mock_reader
+
+                result = svc.extract_text("data:image/png;base64,dGVzdCBkYXRh")
+                assert result == "extracted text from data uri"
+                # Check that the prefix was stripped and only clean base64 string was decoded
+                mock_decode.assert_called_once_with("dGVzdCBkYXRh")
+
+    def test_extract_text_handles_missing_padding(self):
+        """Test that base64 strings with missing padding have padding added properly"""
+        svc = OCRService()
+
+        with patch('base64.b64decode', return_value=b'padded_data') as mock_decode:
+            with patch('backend.services.ocr_service._get_reader') as mock_get_reader:
+                mock_reader = MagicMock()
+                mock_reader.readtext.return_value = ["extracted padded text"]
+                mock_get_reader.return_value = mock_reader
+
+                # "dGVzdCBkYXRhY" is length 13, missing padding (13 % 4 = 1, so needs 3 '=' characters)
+                result = svc.extract_text("dGVzdCBkYXRhY")
+                assert result == "extracted padded text"
+                mock_decode.assert_called_once_with("dGVzdCBkYXRhY===")
+
+    def test_extract_text_handles_exception_gracefully(self):
+        """Test that OCRService handles any internal exceptions gracefully and returns empty string"""
+        svc = OCRService()
+
+        with patch('base64.b64decode', side_effect=Exception("B64 decode failure")):
+            result = svc.extract_text("dGVzdCBkYXRh")
+            assert result == ""

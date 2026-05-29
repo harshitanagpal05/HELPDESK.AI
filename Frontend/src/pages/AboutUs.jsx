@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -11,21 +11,24 @@ import {
   Server,
   Laptop,
   Github,
+  Linkedin,
   ExternalLink,
   Users,
   BookOpen,
   HelpCircle,
   Code,
-  Sparkles,
-  Workflow,
-  Shield,
-  Cpu,
-  Phone,
   Clock,
-  MessageSquareText,
+  Bot,
+  Activity,
+  Play,
+  Pause,
+  ArrowRight,
+  Sparkles,
+  Globe,
+  Shuffle,
+  CheckCircle2,
   Terminal,
-  Network,
-  AppWindow
+  AlertCircle
 } from "lucide-react";
 
 // Framer Motion Animation Variants
@@ -39,1091 +42,647 @@ const staggerContainer = {
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.12
+      staggerChildren: 0.08
     }
   }
 };
 
-const springIn = {
-  hidden: { opacity: 0, scale: 0.98, y: 10 },
-  visible: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.55, ease: "easeOut" } }
-};
-
-const SectionHeading = ({ eyebrow, title, subtitle }) => {
-  return (
-    <div className="text-center mb-14">
-      {eyebrow ? (
-        <span className="text-xs font-bold uppercase tracking-widest text-emerald-400 mb-3 block">
-          {eyebrow}
-        </span>
-      ) : null}
-      <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight">{title}</h2>
-      {subtitle ? <p className="text-gray-400 mt-3 max-w-2xl mx-auto leading-relaxed">{subtitle}</p> : null}
-    </div>
-  );
-};
-
-const GlowCard = ({ children, className = "" }) => {
-  return (
-    <div
-      className={`bg-white/5 border border-white/10 rounded-3xl backdrop-blur-xl overflow-hidden relative ${className}`}
-    >
-      <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent" />
-      <div className="relative z-10">{children}</div>
-    </div>
-  );
-};
-
-const Pill = ({ children }) => (
-  <span className="inline-flex items-center gap-2 bg-white/5 border border-white/10 text-emerald-300/90 text-xs font-semibold rounded-full px-3 py-1.5">
-    {children}
-  </span>
-);
-
 const AboutUs = () => {
   const navigate = useNavigate();
+  const [activeStep, setActiveStep] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [activeTeamFilter, setActiveTeamFilter] = useState("All");
 
-  const aiFeatures = [
+  const capabilities = [
+    {
+      icon: <Zap className="w-6 h-6 text-emerald-400" />,
+      title: "Smart Priority Detection",
+      desc: "Linguistically parses incoming complaints for urgency and business impact, automatically setting ticket priorities from Low to Critical."
+    },
     {
       icon: <FolderOpen className="w-6 h-6 text-emerald-400" />,
-      title: "Instant Ticket Categorization",
-      desc: "Context-aware classification (DistilBERT) categorizes IT requests in milliseconds—so L1 teams stop acting as a routing engine."
+      title: "AI Ticket Classification",
+      desc: "Uses NLP categorization models to instantly route requests into Network, Hardware, Software, or Access classes, saving manual dispatch hours."
     },
     {
-      icon: <MessageSquareText className="w-6 h-6 text-emerald-400" />,
-      title: "Instant Fix Suggestions",
-      desc: "LLM-powered guidance uses integrated knowledge to propose actionable “draft resolutions” during ticket creation."
+      icon: <Shuffle className="w-6 h-6 text-emerald-400" />,
+      title: "Context-Aware Routing",
+      desc: "Analyzes issue context and technician workloads to route complex cases directly to the correct specialized IT team with complete logs."
     },
     {
-      icon: <Layers className="w-6 h-6 text-emerald-400" />,
-      title: "Duplicate Prevention & Clustering",
-      desc: "Vector similarity scan groups semantically identical incidents, preventing agent alert fatigue and reducing repeat work."
-    },
-    {
-      icon: <ShieldCheck className="w-6 h-6 text-emerald-400" />,
-      title: "Enterprise Multi-Tenant Isolation",
-      desc: "Tiered SaaS isolation with strict organization boundaries—built for production operations and secure workflows."
-    },
-    {
-      icon: <Cpu className="w-6 h-6 text-emerald-400" />,
-      title: "NER Metadata Harvesting",
-      desc: "Named Entity Recognition extracts technical identifiers (hostnames, serial numbers, IPs) to accelerate triage and routing."
-    },
-    {
-      icon: <Sparkles className="w-6 h-6 text-emerald-400" />,
-      title: "Generative OCR for Screenshots",
-      desc: "Extracts error details from images so users don’t need perfect descriptions—automatically builds structured incident signals."
+      icon: <Globe className="w-6 h-6 text-emerald-400" />,
+      title: "Regional Cloud Reliability",
+      desc: "Designed specifically for data sovereignty and offline-first resiliency, ensuring enterprise compliance and secure regional cloud hosting."
     }
   ];
 
-  const permissionLayers = [
+  const workflowSteps = [
     {
-      label: "Layer 1",
-      title: "Master Admin",
-      badge: "Global Overseers",
-      desc: "Tenant registration, company onboarding, and global health monitoring across the entire SaaS ecosystem.",
-      points: [
-        "Cross-tenant observability",
-        "Provisioning & onboarding workflows",
-        "System health & audit trails"
-      ],
-      icon: <Shield className="w-5 h-5 text-emerald-300" />
+      label: "Ingestion",
+      title: "Incoming User Ticket",
+      desc: "A user submits a request via email, chat widget, or portal. The system ingests natural language text.",
+      icon: <Database className="w-5 h-5" />,
+      color: "from-blue-500 to-indigo-500",
+      json: {
+        ticket_id: "T-8429",
+        source: "Email Parser",
+        raw_text: "Hey support, the VPN in downstream Lab 3 keeps disconnecting. Can't access the server! Needs immediate fix.",
+        timestamp: new Date().toISOString()
+      }
     },
     {
-      label: "Layer 2",
-      title: "Company Admin",
-      badge: "IT Management",
-      desc: "Organization-level control to manage users, policies, and AI-driven insights.",
-      points: ["Org-specific dashboards", "User auditing & governance", "Sentiment analytics & reporting"],
-      icon: <Network className="w-5 h-5 text-emerald-300" />
+      label: "AI Analysis",
+      title: "NLU parsing & OCR extraction",
+      desc: "Our models run Named Entity Recognition (NER) and OCR to extract key system parameters, keywords, and text from screenshots.",
+      icon: <Bot className="w-5 h-5" />,
+      color: "from-purple-500 to-pink-500",
+      json: {
+        extracted_entities: {
+          system: "VPN",
+          location: "Lab 3 (Downstream)",
+          impact: "Server Access Blocked"
+        },
+        ocr_text: null,
+        confidence_score: 0.985
+      }
     },
     {
-      label: "Layer 3",
-      title: "Standard User",
-      badge: "Employees",
-      desc: "Employee-grade experience to create tickets with AI assistance and track resolutions in real time.",
-      points: [
-        "AI-powered ticket creation",
-        "Semantic search",
-        "Real-time status updates"
-      ],
-      icon: <Users className="w-5 h-5 text-emerald-300" />
+      label: "Priority Prediction",
+      title: "Urgency evaluation",
+      desc: "The classifier predicts the category and priority levels by assessing urgency language and historic business impact.",
+      icon: <AlertCircle className="w-5 h-5" />,
+      color: "from-orange-500 to-red-500",
+      json: {
+        predicted_category: "Network",
+        predicted_priority: "High",
+        urgency_score: 0.92,
+        escalation_sla: "2 Hours"
+      }
     },
     {
-      label: "Layer 4",
-      title: "Public Layer",
-      badge: "Prospects",
-      desc: "A premium onboarding journey for potential customers with sales engineering engagement.",
-      points: ["Guided sales experience", "Contact & support routes", "Premium journey & tier visibility"],
-      icon: <HelpCircle className="w-5 h-5 text-emerald-300" />
+      label: "Team Routing",
+      title: "Autonomous queue dispatch",
+      desc: "The system matches workloads and skills, and dynamically dispatches the ticket to the optimal engineering team queue.",
+      icon: <Shuffle className="w-5 h-5" />,
+      color: "from-teal-500 to-emerald-500",
+      json: {
+        assigned_group: "NetOps Team",
+        notified_members: ["Satla P.", "Bandi K."],
+        queue_position: 1,
+        auto_escalation: true
+      }
+    },
+    {
+      label: "Resolution",
+      title: "Smart solution delivery",
+      desc: "AI scans historical resolutions. If a match is found above the threshold, it sends the solution; otherwise, dispatches with logs.",
+      icon: <CheckCircle2 className="w-5 h-5" />,
+      color: "from-emerald-500 to-green-500",
+      json: {
+        duplicate_detected: false,
+        similar_tickets: ["T-4029 (92% match)"],
+        suggested_fix: "Remote reboot of the Lab 3 gateway router.",
+        status: "Auto-Resolved / Dispatched",
+        processing_latency: "1.42s"
+      }
     }
   ];
 
-  const pipelineStages = [
-    {
-      step: "01",
-      title: "Ingestion",
-      desc: "Support tickets are accepted via email parsers, customer web widgets, or direct dashboard submission."
-    },
-    {
-      step: "02",
-      title: "Extraction",
-      desc: "OCR extracts relevant text from screenshots; NER harvests technical identifiers and keywords."
-    },
-    {
-      step: "03",
-      title: "Classification",
-      desc: "DistilBERT models predict category and compute priority based on urgency signals and technical context."
-    },
-    {
-      step: "04",
-      title: "Similarity Scan",
-      desc: "Vector similarity identifies if a similar incident is already being resolved; duplicates are linked automatically."
-    },
-    {
-      step: "05",
-      title: "Auto-Resolution",
-      desc: "If confidence thresholds are met, the system drafts/resolves and communicates updates back to the user."
-    },
-    {
-      step: "06",
-      title: "Smart Triage",
-      desc: "Unresolved tickets route to the right engineering team queues with AI logs attached for auditability."
-    }
+  const teamMembers = [
+    // Coordination
+    { name: "Duniya Vasa", role: "Team Lead", team: "Coordination", github: "https://github.com/Duniya-24", linkedin: "https://www.linkedin.com/in/duniyavasa/" },
+    { name: "Sowjanya N", role: "Member", team: "Coordination", github: "https://github.com/Sowji0118/", linkedin: "https://www.linkedin.com/in/sowjanya-n-962319354" },
+    // Frontend
+    { name: "Satla Prayukthika", role: "Lead", team: "Frontend", github: "https://github.com/prayukthika03", linkedin: "https://www.linkedin.com/in/satla-prayukthika-328114291/" },
+    { name: "Bandi Keerthi Krishna", role: "Member", team: "Frontend", github: "https://github.com/bKeerthi-1205", linkedin: "https://www.linkedin.com/in/bandikeerthikrishna" },
+    { name: "Shubha G D", role: "Member", team: "Frontend", github: "https://github.com/gdshubha148", linkedin: "https://www.linkedin.com/in/shubha-g-d-a879003b5" },
+    { name: "K.P.V.V.S.S.M.P.Hara", role: "Member", team: "Frontend", github: "https://github.com/phanikotha18-sudo", linkedin: "https://www.linkedin.com/in/phani" },
+    // Backend
+    { name: "Asmeet Kaur Makkad", role: "Lead", team: "Backend", github: "https://github.com/AsmeetKaurMakkad", linkedin: "https://www.linkedin.com/in/asmeet-kaur-makkad-911bb3304" },
+    { name: "Vijayalakshmi S R", role: "Member", team: "Backend", github: "https://github.com/Vijayalakshmi1412", linkedin: "https://www.linkedin.com/in/vijayalakshmi-s-r-6a260228a/" },
+    { name: "Dinesh Reddy Vasampelli", role: "Member", team: "Backend", github: "https://github.com/vasampellidineshreddy18-bot", linkedin: "https://www.linkedin.com/in/dineshreddy-vasampelli-b11046296/" },
+    { name: "Manya Sahasra", role: "Member", team: "Backend", github: "https://github.com/ManyaSaaha9", linkedin: "https://www.linkedin.com/in/manya2929" },
+    // Data
+    { name: "Praneetha Baru", role: "Lead", team: "Data", github: "https://github.com/Praneetha7305", linkedin: "https://www.linkedin.com/in/praneetha-baru-0846b0295" },
+    { name: "Kavin Sarvesh", role: "Member", team: "Data", github: "https://github.com/Kavinsarvesh2006", linkedin: "https://www.linkedin.com/in/kavin-sarvesh-813437360" },
+    { name: "Utukuri Naga Sri Hari Chandana", role: "Member", team: "Data", github: "https://github.com/2300031149-chandana", linkedin: "https://www.linkedin.com/in/naga-sri-hari-chandana-utukuri-541b072a3" },
+    { name: "Akash Kumar Paswan", role: "Member", team: "Data", github: "https://github.com/Akashpaswan302", linkedin: "https://www.linkedin.com/in/akash-kumar-paswan-951a13361" },
+    { name: "Ganesh Goud Tekmul", role: "Member", team: "Data", github: "https://github.com/ganeshgoud96", linkedin: "https://www.linkedin.com/in/ganesh-goud-a55a8b373/" },
+    // Model
+    { name: "Asna Abdul Kareem", role: "Lead", team: "Model", github: "https://github.com/Asnaabdul", linkedin: "https://www.linkedin.com/in/asna-abdul-kareem-6774a6292" },
+    { name: "Vinitha Giri", role: "Member", team: "Model", github: "https://github.com/vinitha-giri", linkedin: "https://www.linkedin.com/in/vinitha-giri/" },
+    { name: "Ippili Raju", role: "Member", team: "Model", github: "https://github.com/raju-ippili", linkedin: "https://www.linkedin.com/in/raju-ippili-419051308/" },
+    { name: "Pragati Tiwari", role: "Member", team: "Model", github: "https://github.com/pTIWARI-20", linkedin: "https://www.linkedin.com/in/pragati-tiwari-608b043b5" },
+    { name: "Shaik Eshak", role: "Member", team: "Model", github: "https://github.com/Eshakshai", linkedin: "https://www.linkedin.com/in/eshak-s-16738626a/" },
+    { name: "Ritesh Bonthalakoti", role: "Member", team: "Model", github: "https://github.com/ritesh-1918", linkedin: "https://www.linkedin.com/in/ritesh1908" }
   ];
 
-  const techStack = [
-    {
-      category: "Frontend Experience",
-      icon: <Laptop className="w-5 h-5 text-emerald-400" />,
-      techs: ["React (Vite)", "Tailwind CSS", "Framer Motion", "Lucide React"]
-    },
-    {
-      category: "Intelligence & Backend",
-      icon: <Server className="w-5 h-5 text-emerald-400" />,
-      techs: ["FastAPI (Python)", "Hugging Face Hub", "Transformers & PyTorch", "OCR + NER engines"]
-    },
-    {
-      category: "Database & Services",
-      icon: <Database className="w-5 h-5 text-emerald-400" />,
-      techs: ["Supabase (PostgreSQL + RLS)", "pgvector (Similarity)", "Realtime webhooks", "SLA + audit services"]
-    }
-  ];
+  const filteredTeam = activeTeamFilter === "All"
+    ? teamMembers
+    : teamMembers.filter(m => m.team === activeTeamFilter);
 
-  const roadmap = [
-    {
-      phase: "Phase 1",
-      title: "Core Ticketing & DistilBERT Categorization",
-      status: "Shipped",
-      desc: "Eliminate manual triage bottlenecks by categorizing tickets in milliseconds and routing with precision."
-    },
-    {
-      phase: "Phase 2",
-      title: "Multi-tenant SaaS Architecture",
-      status: "Shipped",
-      desc: "Secure tiered isolation using Supabase RLS so each organization remains properly isolated."
-    },
-    {
-      phase: "Phase 3",
-      title: "Generative Knowledge-Base Articles",
-      status: "Shipped",
-      desc: "Integrate GitHub Models to support generative resolution drafts and knowledge artifacts."
-    },
-    {
-      phase: "Phase 4",
-      title: "Enterprise Service Desk Sync",
-      status: "In Progress",
-      desc: "SAP / ServiceNow direct bidirectional sync to bring autonomy into existing enterprise workflows."
-    },
-    {
-      phase: "Phase 5",
-      title: "AI Voice Support Agent",
-      status: "Planned",
-      desc: "AI voice agent via Twilio for hands-free incident intake and real-time resolution assistance."
+  // Auto-play timer for interactive workflow
+  useEffect(() => {
+    let timer;
+    if (isPlaying) {
+      timer = setInterval(() => {
+        setActiveStep(prev => (prev + 1) % workflowSteps.length);
+      }, 4000);
     }
-  ];
+    return () => clearInterval(timer);
+  }, [isPlaying]);
 
   return (
-    <div className="min-h-screen bg-[#021510] text-white relative overflow-hidden font-sans">
+    <div className="min-h-screen bg-[#021510] text-white relative overflow-hidden font-sans bg-[linear-gradient(to_right,#80808006_1px,transparent_1px),linear-gradient(to_bottom,#80808006_1px,transparent_1px)] bg-[size:32px_32px]">
+      
       {/* Background Ambient Glows */}
-      <div className="absolute top-0 left-0 w-[560px] h-[560px] bg-emerald-500/10 blur-[140px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-[560px] h-[560px] bg-teal-400/10 blur-[140px] rounded-full pointer-events-none" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[420px] h-[420px] bg-green-500/5 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-emerald-500/5 blur-[150px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-teal-400/5 blur-[150px] rounded-full pointer-events-none" />
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-green-500/5 blur-[130px] rounded-full pointer-events-none" />
 
       {/* Main Container */}
       <div className="max-w-6xl mx-auto px-6 py-12 relative z-10">
+        
         {/* Navigation & Header */}
-        <motion.div
+        <motion.div 
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="mb-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4"
+          className="mb-16 flex justify-between items-center"
         >
-          <button
+          <button 
             onClick={() => navigate("/")}
-            className="group inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/30 px-4 py-2 rounded-full text-sm font-semibold tracking-wide transition-all shadow-md w-fit"
+            className="group inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/30 px-5 py-2.5 rounded-full text-sm font-semibold tracking-wide transition-all shadow-md shadow-black/30"
           >
             <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
             Back to Home
           </button>
-
-          <div className="flex items-center gap-3 flex-wrap">
-            <Pill>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              GSSoC 2026 Compliant
-            </Pill>
-            <Pill>
-              <span className="w-1.5 h-1.5 rounded-full bg-teal-300 animate-pulse" />
-              Enterprise SaaS Architecture
-            </Pill>
+          
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/25">GSSoC 2026 Compliant</span>
           </div>
         </motion.div>
 
-        {/* HERO */}
-        <section id="top" className="mb-24">
+        {/* Hero Section */}
+        <section className="text-center mb-24">
           <motion.div
             initial="hidden"
             animate="visible"
-            variants={springIn}
-            className="relative"
+            variants={fadeInUp}
+            className="max-w-4xl mx-auto"
           >
-            <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-[720px] h-[320px] bg-gradient-to-r from-emerald-500/15 via-transparent to-teal-400/10 blur-2xl rounded-full pointer-events-none" />
-            <div className="relative z-10 text-center">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md mb-6">
-                <Sparkles className="w-4 h-4 text-emerald-300" />
-                <span className="text-xs font-bold uppercase tracking-widest text-emerald-200">Neural System Orchestrator</span>
-              </div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-bold uppercase tracking-wider rounded-full mb-6">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Next-Gen AI Ticket Triage</span>
+            </div>
+            <h1 className="text-5xl md:text-7xl font-extrabold mb-6 tracking-tight leading-none">
+              About
+              <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-200 bg-clip-text text-transparent">
+                {" "}HELPDESK.AI
+              </span>
+            </h1>
+            <p className="text-gray-400 text-lg md:text-xl leading-relaxed max-w-3xl mx-auto mb-8">
+              A sovereign, reliability-first triage engine engineered to eliminate support ticket bottlenecks. By running fast local ML classifiers and vector similarity searches, we route and self-solve corporate incidents in milliseconds.
+            </p>
+          </motion.div>
+        </section>
 
-              <h1 className="text-4xl md:text-6xl font-extrabold mb-6 tracking-tight leading-tight">
-                About
-                <span className="bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent"> {"HELPDESK.AI"}</span>
-              </h1>
-              <p className="text-gray-400 text-lg md:text-xl leading-relaxed max-w-3xl mx-auto">
-                HELPDESK.AI is designed to end manual ticket triage. Using context-aware AI, semantic deduplication,
-                and enterprise-grade multi-tenant architecture, we streamline support workflows from chaos to clarity.
+        {/* Mission Statement */}
+        <section className="mb-28">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={fadeInUp}
+            className="bg-white/5 border border-white/10 rounded-[32px] p-8 md:p-12 relative overflow-hidden backdrop-blur-xl"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent pointer-events-none" />
+            <div className="relative z-10 max-w-4xl mx-auto text-center">
+              <span className="text-xs font-bold uppercase tracking-widest text-emerald-400 mb-4 block">Our Vision</span>
+              <h2 className="text-2xl md:text-4xl font-extrabold mb-6 text-white tracking-tight leading-tight">
+                "Empowering Enterprises with Sovereign, High-Resiliency Triage Solutions."
+              </h2>
+              <p className="text-gray-400 text-base md:text-lg leading-relaxed max-w-3xl mx-auto">
+                We believe engineering and IT operations should not be held back by ticketing dispatch queues. Our mission is to build a high-performance, offline-resilient automation layer that intercepts complaints, detects system failures, matches historical closures, and empowers human technicians with deep context.
               </p>
-
-              <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
-                <GlowCard className="p-6">
-                  <div className="flex items-start gap-3">
-                    <Workflow className="w-5 h-5 text-emerald-300 mt-0.5" />
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-widest text-emerald-300">Milliseconds</p>
-                      <h3 className="text-lg font-bold mt-1">AI-driven routing</h3>
-                      <p className="text-gray-400 text-sm mt-1 leading-relaxed">
-                        Categorize, prioritize, and triage with speed.
-                      </p>
-                    </div>
-                  </div>
-                </GlowCard>
-                <GlowCard className="p-6">
-                  <div className="flex items-start gap-3">
-                    <Terminal className="w-5 h-5 text-emerald-300 mt-0.5" />
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-widest text-emerald-300">Audit-first</p>
-                      <h3 className="text-lg font-bold mt-1">Transparent AI logs</h3>
-                      <p className="text-gray-400 text-sm mt-1 leading-relaxed">
-                        Every AI decision is tracked for operations and governance.
-                      </p>
-                    </div>
-                  </div>
-                </GlowCard>
-                <GlowCard className="p-6">
-                  <div className="flex items-start gap-3">
-                    <Shield className="w-5 h-5 text-emerald-300 mt-0.5" />
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-widest text-emerald-300">Multi-tenant</p>
-                      <h3 className="text-lg font-bold mt-1">SaaS isolation</h3>
-                      <p className="text-gray-400 text-sm mt-1 leading-relaxed">
-                        Organization boundaries with secure configuration profiles.
-                      </p>
-                    </div>
-                  </div>
-                </GlowCard>
-              </div>
             </div>
           </motion.div>
         </section>
 
-        {/* MISSION & VISION */}
-        <section id="mission" className="mb-28">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            variants={fadeInUp}
-            className="bg-white/5 border border-white/10 rounded-3xl p-8 md:p-12 relative overflow-hidden backdrop-blur-xl"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-teal-400/5 pointer-events-none" />
-            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-              <div className="lg:col-span-1 text-center lg:text-left">
-                <span className="text-xs font-bold uppercase tracking-widest text-emerald-400 mb-3 block">Our Mission</span>
-                <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Eliminate the triage bottleneck</h2>
-                <p className="text-gray-400 leading-relaxed mt-4">
-                  We help engineering and IT support teams stop spending time on tagging, assigning, and routing.
-                  Instead, HELPDESK.AI analyzes context, remembers historical resolutions, and automates resolutions at scale.
-                </p>
-              </div>
+        {/* Why HELPDESK.AI? Section */}
+        <section className="mb-28">
+          <div className="text-center mb-16">
+            <span className="text-xs font-bold uppercase tracking-widest text-emerald-400 mb-3 block">Why Choose Us</span>
+            <h2 className="text-3xl md:text-4xl font-black tracking-tight">Enterprise Differentiation</h2>
+            <p className="text-gray-400 mt-2 text-sm max-w-md mx-auto">What makes HELPDESK.AI the intelligent choice for modern support teams.</p>
+          </div>
 
-              <div className="lg:col-span-2">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <GlowCard className="p-6">
-                    <div className="flex items-start gap-3">
-                      <Zap className="w-5 h-5 text-emerald-300 mt-0.5" />
-                      <div>
-                        <h3 className="text-lg font-bold">Operational speed</h3>
-                        <p className="text-gray-400 text-sm mt-2 leading-relaxed">
-                          DistilBERT categorization and vector similarity scan enable instant prioritization and deduplication.
-                        </p>
-                      </div>
-                    </div>
-                  </GlowCard>
-                  <GlowCard className="p-6">
-                    <div className="flex items-start gap-3">
-                      <ShieldCheck className="w-5 h-5 text-emerald-300 mt-0.5" />
-                      <div>
-                        <h3 className="text-lg font-bold">Enterprise governance</h3>
-                        <p className="text-gray-400 text-sm mt-2 leading-relaxed">
-                          Secure multi-tenant isolation with explicit permission layers and audit-friendly AI logs.
-                        </p>
-                      </div>
-                    </div>
-                  </GlowCard>
-                </div>
-
-                <div className="mt-6">
-                  <span className="text-xs font-bold uppercase tracking-widest text-emerald-400 mb-3 block">Our Vision</span>
-                  <h3 className="text-2xl font-bold tracking-tight">A self-driving support ecosystem</h3>
-                  <p className="text-gray-400 mt-4 leading-relaxed">
-                    We envision a future where repetitive incidents are resolved before they become ticket floods.
-                    With proactive resolution suggestions, semantic duplicate clustering, and reliable triage routing,
-                    support operations become predictable and scalable.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        </section>
-
-        {/* WHY HELPDESK.AI */}
-        <section id="why" className="mb-28">
-          <SectionHeading
-            eyebrow="Business Value"
-            title="Why HELPDESK.AI"
-            subtitle="Massive ROI by turning ticket intake into an intelligent orchestration pipeline—built for enterprise operations."
-          />
-
-          <motion.div
+          <motion.div 
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-50px" }}
             variants={staggerContainer}
             className="grid grid-cols-1 md:grid-cols-2 gap-8"
           >
-            {[
-              {
-                icon: <ShieldCheck className="w-6 h-6 text-emerald-400" />,
-                title: "Eliminating manual triage",
-                desc: "Context-aware classification routes requests immediately—bypassing the L1 bottleneck and reducing agent workload."
-              },
-              {
-                icon: <Sparkles className="w-6 h-6 text-emerald-400" />,
-                title: "Proactive resolution drafts",
-                desc: "Integrated LLM intelligence reviews issues at creation time to suggest “Instant Fixes,” reducing actual ticket volume."
-              },
-              {
-                icon: <Layers className="w-6 h-6 text-emerald-400" />,
-                title: "Tiered multi-tenancy",
-                desc: "Secure SaaS isolation keeps separate companies properly bounded within a single platform environment."
-              },
-              {
-                icon: <Clock className="w-6 h-6 text-emerald-400" />,
-                title: "Operational consistency",
-                desc: "AI logs, deterministic routing, and structured workflows create repeatable support outcomes across teams."
-              }
-            ].map((item, idx) => (
+            {capabilities.map((cap, idx) => (
               <motion.div
                 key={idx}
                 variants={fadeInUp}
-                whileHover={{ scale: 1.015 }}
-                className="bg-white/5 border border-white/10 p-8 rounded-3xl backdrop-blur-xl transition-colors duration-300 group relative overflow-hidden"
+                whileHover={{ scale: 1.01, borderColor: "rgba(16,185,129,0.3)" }}
+                className="bg-white/5 border border-white/10 p-8 rounded-[24px] backdrop-blur-xl transition-all duration-300 group"
               >
-                <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-emerald-500/15 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="relative z-10">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-6 group-hover:bg-emerald-500/20 transition-all shadow-inner">
-                    {item.icon}
-                  </div>
-                  <h3 className="text-xl font-bold mb-3 text-white">{item.title}</h3>
-                  <p className="text-gray-400 text-sm leading-relaxed">{item.desc}</p>
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-6 group-hover:bg-emerald-500/20 transition-all shadow-inner">
+                  {cap.icon}
                 </div>
+                <h3 className="text-xl font-bold mb-3 text-white group-hover:text-emerald-300 transition-colors">{cap.title}</h3>
+                <p className="text-gray-400 text-sm leading-relaxed">{cap.desc}</p>
               </motion.div>
             ))}
           </motion.div>
         </section>
 
-        {/* AI-POWERED FEATURES */}
-        <section id="features" className="mb-28">
-          <SectionHeading
-            eyebrow="AI-Powered"
-            title="AI-powered features"
-            subtitle="Designed to reduce time-to-resolution and increase consistency with context-aware classification, extraction, and auto-triage."
-          />
-
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-50px" }}
-            variants={staggerContainer}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-          >
-            {aiFeatures.map((f, idx) => (
-              <motion.div
-                key={idx}
-                variants={fadeInUp}
-                whileHover={{ y: -4, borderColor: "rgba(16,185,129,0.35)" }}
-                className="bg-white/5 border border-white/10 p-7 rounded-3xl backdrop-blur-xl hover:shadow-[0_0_60px_rgba(16,185,129,0.10)] transition-all relative overflow-hidden"
-              >
-                <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-emerald-500/10 to-transparent opacity-0 hover:opacity-100 transition-opacity" />
-                <div className="relative z-10">
-                  <div className="flex items-center gap-3 mb-5">
-                    <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">{f.icon}</div>
-                    <h3 className="text-lg font-bold text-white">{f.title}</h3>
-                  </div>
-                  <p className="text-gray-400 text-sm leading-relaxed">{f.desc}</p>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-        </section>
-
-        {/* PERMISSION MATRIX */}
-        <section id="permissions" className="mb-28">
-          <SectionHeading
-            eyebrow="Security & Governance"
-            title="4-layer permission matrix"
-            subtitle="Designed for true SaaS isolation with role clarity across global oversight, org administration, employee workflows, and public onboarding."
-          />
-
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-50px" }}
-            variants={staggerContainer}
-            className="grid grid-cols-1 md:grid-cols-2 gap-8"
-          >
-            {permissionLayers.map((layer, idx) => (
-              <motion.div
-                key={idx}
-                variants={fadeInUp}
-                whileHover={{ scale: 1.01 }}
-                className="bg-white/5 border border-white/10 rounded-3xl backdrop-blur-xl p-8 relative overflow-hidden"
-              >
-                <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-emerald-500/12 to-transparent opacity-0 hover:opacity-100 transition-opacity" />
-                <div className="relative z-10">
-                  <div className="flex items-start justify-between gap-4 mb-6">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                        {layer.icon}
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold uppercase tracking-widest text-emerald-300">{layer.label}</div>
-                        <h3 className="text-xl font-bold text-white leading-tight">{layer.title}</h3>
-                        <p className="text-sm text-gray-400 mt-1">{layer.badge}</p>
-                      </div>
-                    </div>
-                    <span className="inline-flex items-center text-xs font-bold rounded-full px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
-                      Enterprise
-                    </span>
-                  </div>
-
-                  <p className="text-gray-400 text-sm leading-relaxed mb-5">{layer.desc}</p>
-
-                  <ul className="space-y-3">
-                    {layer.points.map((p, pIdx) => (
-                      <li key={pIdx} className="flex items-start gap-3">
-                        <span className="mt-2 w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
-                        <span className="text-gray-200 text-sm">{p}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-        </section>
-
-        {/* AI NEURAL PIPELINE WORKFLOW */}
-        <section id="pipeline" className="mb-28">
-          <SectionHeading
-            eyebrow="End-to-End Workflow"
-            title="AI neural pipeline workflow"
-            subtitle="From ingestion to smart triage: classification, extraction, similarity linking, and confidence-based resolution."
-          />
-
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-50px" }}
-            variants={staggerContainer}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-          >
-            {pipelineStages.map((stage, idx) => (
-              <motion.div
-                key={idx}
-                variants={fadeInUp}
-                className="bg-white/5 border border-white/10 p-6 rounded-2xl relative overflow-hidden backdrop-blur-xl"
-                whileHover={{ y: -4, borderColor: "rgba(16,185,129,0.35)" }}
-              >
-                <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-emerald-500/10 blur-xl pointer-events-none" />
-
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-300 font-extrabold text-xs border border-emerald-500/25">
-                    {stage.step}
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white">{stage.title}</h3>
-                    <p className="text-gray-400 text-xs leading-relaxed mt-2">{stage.desc}</p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-
-          <div className="mt-10">
-            <GlowCard className="p-7 md:p-10">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
-                <div>
-                  <h3 className="text-2xl font-bold tracking-tight">Neural pipeline under the hood</h3>
-                  <p className="text-gray-400 mt-4 leading-relaxed">
-                    HELPDESK.AI uses a production-oriented pipeline:
-                    <span className="text-emerald-300 font-semibold"> high-precision classification</span>,
-                    <span className="text-emerald-300 font-semibold"> NER metadata harvesting</span>,
-                    <span className="text-emerald-300 font-semibold"> duplicate prevention</span>,
-                    and <span className="text-emerald-300 font-semibold"> generative OCR</span>.
-                    Together, these blocks produce structured incident signals and faster resolutions.
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  {[{ icon: <BookOpen className="w-5 h-5 text-emerald-300" />, t: "Classification", d: "DistilBERT routes by context and urgency." },
-                    { icon: <Layers className="w-5 h-5 text-emerald-300" />, t: "NER Harvesting", d: "Extract hostnames & technical identifiers." },
-                    { icon: <Workflow className="w-5 h-5 text-emerald-300" />, t: "Deduplication", d: "Sentence-transformers prevent flooding." },
-                    { icon: <Zap className="w-5 h-5 text-emerald-300" />, t: "Generative OCR", d: "Pulls error codes from screenshots." }].map((x, i) => (
-                      <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-xl">
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">{x.icon}</div>
-                          <div className="text-sm font-bold text-white">{x.t}</div>
-                        </div>
-                        <div className="text-xs text-gray-400 leading-relaxed">{x.d}</div>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            </GlowCard>
+        {/* Product Workflow Visualization */}
+        <section className="mb-28">
+          <div className="text-center mb-12">
+            <span className="text-xs font-bold uppercase tracking-widest text-emerald-400 mb-3 block">Interactive Flow</span>
+            <h2 className="text-3xl md:text-4xl font-black tracking-tight">How the Platform Works</h2>
+            <p className="text-gray-400 mt-2 text-sm max-w-md mx-auto">Click through the pipeline nodes to see ticket transformations in real time.</p>
           </div>
-        </section>
 
-        {/* TECH STACK / SYSTEM ARCHITECTURE */}
-        <section id="architecture" className="mb-28">
-          <SectionHeading
-            eyebrow="Architecture"
-            title="Tech stack & system architecture"
-            subtitle="A clean, decoupled architecture built for production operations—fast inference, structured signals, and secure multi-tenant data flows."
-          />
-
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-50px" }}
-            variants={staggerContainer}
-            className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10"
-          >
-            {techStack.map((stack, idx) => (
-              <motion.div
-                key={idx}
-                variants={fadeInUp}
-                className="bg-white/5 border border-white/10 p-8 rounded-3xl backdrop-blur-xl relative overflow-hidden"
-                whileHover={{ y: -4, borderColor: "rgba(16,185,129,0.35)" }}
+          <div className="bg-white/5 border border-white/10 rounded-[32px] p-6 md:p-8 backdrop-blur-xl">
+            {/* Control Bar */}
+            <div className="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-xs font-mono font-bold text-gray-300">SYSTEM PIPELINE RADAR</span>
+              </div>
+              <button 
+                onClick={() => setIsPlaying(!isPlaying)}
+                className="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-emerald-400 border border-emerald-500/20 transition-all"
               >
-                <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-emerald-500/12 to-transparent opacity-0 hover:opacity-100 transition-opacity" />
-                <div className="relative z-10">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">{stack.icon}</div>
-                    <h3 className="text-lg font-bold text-white leading-tight">{stack.category}</h3>
-                  </div>
-                  <ul className="space-y-3">
-                    {stack.techs.map((tech, techIdx) => (
-                      <li key={techIdx} className="flex items-center gap-2.5 text-gray-400 text-sm">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
-                        {tech}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-
-          <GlowCard className="p-8 md:p-10">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
-              <div>
-                <div className="flex items-center gap-3 mb-4">
-                  <AppWindow className="w-5 h-5 text-emerald-300" />
-                  <span className="text-xs font-bold uppercase tracking-widest text-emerald-300">System Overview</span>
-                </div>
-                <h3 className="text-2xl font-bold tracking-tight">From user submissions to AI inference and real-time updates</h3>
-                <p className="text-gray-400 mt-4 leading-relaxed">
-                  The frontend sends incident payloads to a FastAPI backend. The inference engine runs classifier,
-                  NER extraction, OCR processing, and knowledge generation, then commits structured results to Supabase.
-                  Realtime updates synchronize dashboards and admin portals.
-                </p>
-
-                <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {[{ k: "Inference Engine", v: "Classification + NER + OCR + Gen" },
-                    { k: "Routing", v: "Queue routing with confidence & similarity" },
-                    { k: "Data Layer", v: "Supabase + pgvector" },
-                    { k: "Realtime", v: "Webhooks & updates to UI" }].map((x, i) => (
-                      <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-xl">
-                        <div className="text-xs font-bold uppercase tracking-widest text-emerald-300">{x.k}</div>
-                        <div className="text-sm text-gray-200 mt-2">{x.v}</div>
-                      </div>
-                    ))}
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-6 md:p-8 backdrop-blur-xl">
-                <div className="flex items-center justify-between gap-4 mb-4">
-                  <div className="text-xs font-bold uppercase tracking-widest text-emerald-300">Reference Architecture</div>
-                  <span className="text-xs font-bold text-gray-400">Production-oriented</span>
-                </div>
-                <div className="overflow-x-auto">
-                  <pre className="text-[12px] leading-relaxed text-gray-300 whitespace-pre">
-{`User (Frontend)\n  → Submits Issue\nFastAPI Backend\n  → Text Processing\nAI Inference Engine\n  → DistilBERT v3 (Categorization Routing)\n  → NER Engine (Entity Extraction)\n  → Generative OCR (Extract error codes)\n  → Generative Resolves (LLM knowledge)\nSupabase DB\n  → Store structured incidents + vectors\nRealtime WebSocket/Updates\n  → Dashboard aggregation + admin visibility`}
-                  </pre>
-                </div>
-                <div className="mt-4 text-xs text-gray-500">
-                  Note: Diagram text representation (keeps the page self-contained without external Mermaid rendering).
-                </div>
-              </div>
+                {isPlaying ? (
+                  <>
+                    <Pause size={12} className="fill-emerald-400" /> Pause Simulation
+                  </>
+                ) : (
+                  <>
+                    <Play size={12} className="fill-emerald-400" /> Auto Play
+                  </>
+                )}
+              </button>
             </div>
-          </GlowCard>
-        </section>
 
-        {/* MOBILE ECOSYSTEM */}
-        <section id="mobile" className="mb-28">
-          <SectionHeading
-            eyebrow="Mobile"
-            title="Mobile ecosystem"
-            subtitle="A mobile-first helpdesk experience for employees and admins with real-time updates and secure access patterns."
-          />
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-50px" }}
-              variants={fadeInUp}
-              className="bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl relative overflow-hidden"
-              whileHover={{ borderColor: "rgba(16,185,129,0.35)" }}
-            >
-              <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-emerald-500/12 to-transparent opacity-80" />
-              <div className="relative z-10">
-                <div className="flex items-center gap-3 mb-5">
-                  <Phone className="w-5 h-5 text-emerald-300" />
-                  <h3 className="text-2xl font-bold tracking-tight">Helpdesk.ai (Android V1)</h3>
-                </div>
-                <p className="text-gray-400 leading-relaxed">
-                  HELPDESK.AI is now available as a native Android application featuring a complete mobile-first experience
-                  for employees and admins.
-                </p>
-
-                <ul className="mt-6 space-y-3">
-                  {["Real-time status tracking with instant progress updates",
-                    "Biometric-ready access patterns",
-                    "Smart onboarding for new users and pending registrations",
-                    "Session replay integration for proactive debugging (e.g., LogRocket)"]
-                    .map((x, i) => (
-                      <li key={i} className="flex items-start gap-3">
-                        <span className="mt-2 w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                        <span className="text-gray-200 text-sm leading-relaxed">{x}</span>
-                      </li>
-                    ))}
-                </ul>
-
-                <div className="mt-8 flex flex-col sm:flex-row gap-3">
-                  <a
-                    href="./MobileApp/application-2d277b36-4dbd-41c8-806d-cb2f19acf38a.apk"
-                    target="_self"
-                    className="inline-flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-black font-bold px-6 py-3 rounded-xl transition-all shadow-lg hover:shadow-[0_0_40px_rgba(16,185,129,0.25)]"
-                  >
-                    <ExternalLink size={18} />
-                    Download HelpDesk.ai V1 APK
-                  </a>
-                  <a
-                    href="/contact-sales"
-                    className="inline-flex items-center justify-center gap-2 bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold px-6 py-3 rounded-xl transition-all"
-                  >
-                    <HelpCircle size={18} />
-                    Talk to Sales
-                  </a>
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-50px" }}
-              variants={fadeInUp}
-              className="bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl relative overflow-hidden"
-            >
-              <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-teal-400/10 via-transparent to-transparent" />
-              <div className="relative z-10">
-                <div className="flex items-center gap-3 mb-5">
-                  <Workflow className="w-5 h-5 text-emerald-300" />
-                  <h3 className="text-2xl font-bold tracking-tight">Mobile-first experiences</h3>
-                </div>
-                <p className="text-gray-400 leading-relaxed">
-                  Mobile users can submit incidents quickly, search by context, and stay updated without chasing tickets.
-                </p>
-
-                <div className="mt-7 grid grid-cols-1 gap-4">
-                  {[{ icon: <MessageSquareText className="w-5 h-5 text-emerald-300" />, t: "AI-assisted submission", d: "Structured ticket intake with fewer fields and better metadata." },
-                    { icon: <Layers className="w-5 h-5 text-emerald-300" />, t: "Semantic search", d: "Find similar incidents through vector similarity—faster triage." },
-                    { icon: <Clock className="w-5 h-5 text-emerald-300" />, t: "Real-time status", d: "Updates reflected quickly across employee and admin views." },
-                    { icon: <ShieldCheck className="w-5 h-5 text-emerald-300" />, t: "Secure access", d: "Enterprise-friendly authentication patterns and permission boundaries." }].map((x, i) => (
-                    <div key={i} className="flex items-start gap-3 bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-xl">
-                      <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex-shrink-0">{x.icon}</div>
-                      <div>
-                        <div className="font-bold text-white">{x.t}</div>
-                        <div className="text-sm text-gray-400 mt-1 leading-relaxed">{x.d}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-7 text-xs text-gray-500">
-                  The mobile app uses the same enterprise pipeline principles: consistent AI outputs, secure multi-tenant boundaries, and reliable updates.
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        </section>
-
-        {/* ROADMAP */}
-        <section id="roadmap" className="mb-28">
-          <SectionHeading
-            eyebrow="Delivery"
-            title="Product roadmap timeline"
-            subtitle="A phased path from core triage automation to enterprise integrations and multimodal support."
-          />
-
-          <div className="relative">
-            <div className="hidden md:block absolute left-1/2 -translate-x-1/2 top-4 bottom-4 w-px bg-gradient-to-b from-emerald-500/40 via-white/10 to-teal-400/30" />
-            <div className="space-y-6 md:space-y-0 md:grid md:grid-cols-2 md:gap-6">
-              {roadmap.map((r, idx) => {
-                const isLeft = idx % 2 === 0;
-                return (
-                  <motion.div
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+              
+              {/* Step Navigation Tree */}
+              <div className="lg:col-span-5 flex flex-col gap-3 justify-center">
+                {workflowSteps.map((step, idx) => (
+                  <div
                     key={idx}
-                    initial={{ opacity: 0, y: 10 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, margin: "-80px" }}
-                    transition={{ duration: 0.5, ease: "easeOut" }}
-                    className={`${isLeft ? "md:pr-10" : "md:pl-10"} relative`}
+                    onClick={() => {
+                      setActiveStep(idx);
+                      setIsPlaying(false);
+                    }}
+                    className={`group cursor-pointer p-4 rounded-xl border transition-all duration-300 flex items-start gap-4 ${
+                      activeStep === idx
+                        ? "bg-emerald-500/10 border-emerald-500/30 shadow-md shadow-emerald-500/5"
+                        : "bg-transparent border-transparent opacity-60 hover:opacity-100 hover:bg-white/5"
+                    }`}
                   >
-                    <div className="bg-white/5 border border-white/10 rounded-3xl backdrop-blur-xl p-7 md:p-8 relative overflow-hidden hover:border-emerald-500/30 transition-colors">
-                      <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-emerald-500/10 to-transparent opacity-0 hover:opacity-100 transition-opacity" />
-                      <div className="relative z-10">
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <div className="text-xs font-bold uppercase tracking-widest text-emerald-300">{r.phase}</div>
-                            <h3 className="text-xl font-bold mt-2 text-white">{r.title}</h3>
-                          </div>
-                          <span
-                            className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${
-                              r.status === "Shipped"
-                                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
-                                : r.status === "In Progress"
-                                  ? "bg-teal-400/10 border-teal-400/30 text-teal-200"
-                                  : "bg-white/5 border-white/10 text-gray-200"
-                            }`}
-                          >
-                            {r.status}
-                          </span>
-                        </div>
-                        <p className="text-gray-400 text-sm mt-4 leading-relaxed">{r.desc}</p>
-
-                        <div className="mt-5 flex items-center gap-3">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                          <span className="text-xs text-gray-300">
-                            Built to scale support without scaling headcount.
-                          </span>
-                        </div>
-                      </div>
+                    <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm transition-all duration-300 ${
+                      activeStep === idx
+                        ? "bg-emerald-500 text-black shadow-inner"
+                        : "bg-white/5 text-gray-400"
+                    }`}>
+                      {idx + 1}
                     </div>
-                  </motion.div>
-                );
-              })}
+                    <div>
+                      <h4 className={`text-sm font-bold transition-colors ${activeStep === idx ? "text-emerald-400" : "text-white"}`}>
+                        {step.label}
+                      </h4>
+                      <p className="text-xs text-gray-400 line-clamp-1 mt-0.5">{step.title}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Simulation Screen */}
+              <div className="lg:col-span-7 bg-[#010b08]/80 border border-white/5 rounded-2xl overflow-hidden shadow-2xl flex flex-col min-h-[380px]">
+                
+                {/* Simulator Header */}
+                <div className="bg-[#02100c] px-4 py-3 flex items-center justify-between border-b border-white/5 font-mono text-[11px] text-gray-500">
+                  <div className="flex items-center gap-1.5">
+                    <Terminal size={12} className="text-emerald-400" />
+                    <span>triage_simulator_v3.log</span>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
+                  </div>
+                </div>
+
+                {/* Simulator Body */}
+                <div className="p-6 flex-1 flex flex-col justify-between font-mono">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={activeStep}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.3 }}
+                      className="space-y-4"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold px-2.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/20">
+                          {workflowSteps[activeStep].label.toUpperCase()}
+                        </span>
+                        <span className="text-xs text-gray-400">—</span>
+                        <span className="text-xs font-semibold text-gray-300">{workflowSteps[activeStep].title}</span>
+                      </div>
+
+                      <p className="text-xs text-gray-400 leading-relaxed font-sans border-l-2 border-emerald-500/30 pl-3">
+                        {workflowSteps[activeStep].desc}
+                      </p>
+
+                      {/* Code Block Visualizer */}
+                      <div className="bg-[#010403] rounded-lg border border-white/5 p-4 overflow-x-auto text-[11px] leading-relaxed text-emerald-300 max-h-[180px]">
+                        <pre>{JSON.stringify(workflowSteps[activeStep].json, null, 2)}</pre>
+                      </div>
+                    </motion.div>
+                  </AnimatePresence>
+
+                  {/* Flow Dot Progress Indicator */}
+                  <div className="flex justify-between items-center pt-4 mt-4 border-t border-white/5">
+                    <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Pipeline Step {activeStep + 1} of 5</span>
+                    <div className="flex gap-1.5">
+                      {workflowSteps.map((_, i) => (
+                        <div
+                          key={i}
+                          className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                            activeStep === i ? "w-6 bg-emerald-400" : "bg-white/10"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
             </div>
           </div>
         </section>
 
-        {/* OSS / GSSoC CONTRIBUTION */}
-        <section id="oss" className="mb-28">
-          <SectionHeading
-            eyebrow="Community"
-            title="Open source & GSSoC contribution"
-            subtitle="Built with a community mindset—contribute to the Neural System Orchestrator and help shape enterprise-grade autonomy."
-          />
+        {/* Trust & Reliability Metrics */}
+        <section className="mb-28">
+          <div className="text-center mb-16">
+            <span className="text-xs font-bold uppercase tracking-widest text-emerald-400 mb-3 block">Trust Indicators</span>
+            <h2 className="text-3xl md:text-4xl font-black tracking-tight">Platform Trust & SLA Metrics</h2>
+            <p className="text-gray-400 mt-2 text-sm max-w-md mx-auto">High-performance guarantees built to sustain enterprise support workloads.</p>
+          </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-50px" }}
-              variants={fadeInUp}
-              className="lg:col-span-2"
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <motion.div 
+              whileHover={{ y: -4, borderColor: "rgba(16,185,129,0.3)" }}
+              className="bg-white/5 border border-white/10 p-6 rounded-2xl text-center backdrop-blur-xl transition-all"
             >
-              <GlowCard className="p-8 md:p-10">
-                <div className="flex items-center gap-3 mb-5">
-                  <Users className="w-5 h-5 text-emerald-300" />
-                  <span className="text-xs font-bold uppercase tracking-widest text-emerald-300">GSSoC 2026 Contributor & Community Campaign</span>
-                </div>
-                <h3 className="text-2xl md:text-3xl font-extrabold tracking-tight">Support the Orchestrator in 3 seconds</h3>
-                <p className="text-gray-400 mt-4 leading-relaxed">
-                  HELPDESK.AI is proudly participating in **GirlScript Summer of Code (GSSoC) 2026**.
-                  To ensure high-quality contributions and maximum rewards for both developers and mentors,
-                  please review our official mentorship guide and review standard.
-                </p>
-
-                <div className="mt-7 flex flex-col sm:flex-row gap-3 sm:items-center">
-                  <a
-                    href="https://github.com/ritesh-1918/HELPDESK.AI"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-black font-bold px-6 py-3.5 rounded-xl transition-all shadow-lg hover:shadow-[0_0_40px_rgba(16,185,129,0.25)]"
-                  >
-                    <Code size={18} />
-                    Star Repository
-                  </a>
-                  <a
-                    href="https://github.com/ritesh-1918/HELPDESK.AI/fork"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold px-6 py-3.5 rounded-xl transition-all"
-                  >
-                    <Github size={18} />
-                    Fork
-                  </a>
-                </div>
-
-                <div className="mt-6 flex flex-col sm:flex-row gap-3">
-                  <a
-                    href="https://github.com/ritesh-1918"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold px-6 py-3.5 rounded-xl transition-all"
-                  >
-                    <ExternalLink size={18} />
-                    Follow Owner
-                  </a>
-                  <a
-                    href="https://github.com/ritesh-1918/HELPDESK.AI/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold px-6 py-3.5 rounded-xl transition-all"
-                  >
-                    <HelpCircle size={18} />
-                    Good First Issues
-                  </a>
-                </div>
-
-                <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {[{
-                    href: "./MENTORSHIP.md",
-                    title: "Mentorship Guide",
-                    subtitle: "Review standard & expectations",
-                    icon: <BookOpen size={18} className="text-emerald-300" />
-                  },{
-                    href: "https://github.com/ritesh-1918/HELPDESK.AI/discussions",
-                    title: "Community Discussions",
-                    subtitle: "Collaborate with contributors",
-                    icon: <MessageSquareText size={18} className="text-emerald-300" />
-                  },{
-                    href: "mailto:support@helpdesk.ai",
-                    title: "Contact",
-                    subtitle: "Enterprise + community support",
-                    icon: <ExternalLink size={18} className="text-emerald-300" />
-                  }].map((x, i) => (
-                    <a
-                      key={i}
-                      href={x.href}
-                      target={x.href.startsWith("http") ? "_blank" : "_self"}
-                      rel={x.href.startsWith("http") ? "noopener noreferrer" : undefined}
-                      className="bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-xl hover:border-emerald-500/30 transition-all"
-                    >
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">{x.icon}</div>
-                        <div className="font-bold text-white">{x.title}</div>
-                      </div>
-                      <div className="text-xs text-gray-400 leading-relaxed">{x.subtitle}</div>
-                    </a>
-                  ))}
-                </div>
-              </GlowCard>
+              <div className="text-4xl font-extrabold text-emerald-400 mb-2 bg-gradient-to-r from-emerald-400 to-teal-200 bg-clip-text text-transparent">99.9%</div>
+              <h4 className="font-bold text-white text-sm mb-1">Uptime Target SLA</h4>
+              <p className="text-xs text-gray-500">Continuous cloud availability backed by high backup redundancy.</p>
             </motion.div>
 
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-50px" }}
-              variants={fadeInUp}
-              className="h-fit"
+            <motion.div 
+              whileHover={{ y: -4, borderColor: "rgba(16,185,129,0.3)" }}
+              className="bg-white/5 border border-white/10 p-6 rounded-2xl text-center backdrop-blur-xl transition-all"
             >
-              <GlowCard className="p-8">
-                <div className="flex items-center gap-3 mb-4">
-                  <Github className="w-5 h-5 text-emerald-300" />
-                  <div>
-                    <div className="text-xs font-bold uppercase tracking-widest text-emerald-300">Repository</div>
-                    <div className="text-lg font-bold text-white">HELPDESK.AI</div>
-                  </div>
-                </div>
-                <p className="text-gray-400 text-sm leading-relaxed">
-                  Explore the codebase, system architecture, and workflow logic. Contributions help harden the enterprise pipeline.
-                </p>
+              <div className="text-4xl font-extrabold text-emerald-400 mb-2 bg-gradient-to-r from-emerald-400 to-teal-200 bg-clip-text text-transparent">&lt; 2s</div>
+              <h4 className="font-bold text-white text-sm mb-1">Triage Latency</h4>
+              <p className="text-xs text-gray-500">NLU classification and duplicate detection process instantly.</p>
+            </motion.div>
 
-                <div className="mt-6 space-y-4">
-                  <a
-                    href="https://ritesh-1918.github.io/HELPDESK.AI/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="bg-white/5 border border-white/10 hover:border-emerald-500/30 rounded-2xl p-4 backdrop-blur-xl transition-all flex items-center justify-between"
-                  >
-                    <div>
-                      <div className="font-bold text-white">System Presentation</div>
-                      <div className="text-xs text-gray-400 mt-1">Project overview</div>
-                    </div>
-                    <ExternalLink size={18} className="text-gray-400" />
-                  </a>
+            <motion.div 
+              whileHover={{ y: -4, borderColor: "rgba(16,185,129,0.3)" }}
+              className="bg-white/5 border border-white/10 p-6 rounded-2xl text-center backdrop-blur-xl transition-all"
+            >
+              <div className="text-4xl font-extrabold text-emerald-400 mb-2 bg-gradient-to-r from-emerald-400 to-teal-200 bg-clip-text text-transparent">100%</div>
+              <h4 className="font-bold text-white text-sm mb-1">Data Sovereignty</h4>
+              <p className="text-xs text-gray-500">Regional Indian database configurations, complying with data mandates.</p>
+            </motion.div>
 
-                  <a
-                    href="https://ritesh19180-ai-helpdesk-api.hf.space/docs"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="bg-white/5 border border-white/10 hover:border-emerald-500/30 rounded-2xl p-4 backdrop-blur-xl transition-all flex items-center justify-between"
-                  >
-                    <div>
-                      <div className="font-bold text-white">API Documentation</div>
-                      <div className="text-xs text-gray-400 mt-1">Swagger + system docs</div>
-                    </div>
-                    <ExternalLink size={18} className="text-gray-400" />
-                  </a>
-                </div>
-              </GlowCard>
+            <motion.div 
+              whileHover={{ y: -4, borderColor: "rgba(16,185,129,0.3)" }}
+              className="bg-white/5 border border-white/10 p-6 rounded-2xl text-center backdrop-blur-xl transition-all"
+            >
+              <div className="text-4xl font-extrabold text-emerald-400 mb-2 bg-gradient-to-r from-emerald-400 to-teal-200 bg-clip-text text-transparent">3x</div>
+              <h4 className="font-bold text-white text-sm mb-1">Backup Redundancy</h4>
+              <p className="text-xs text-gray-500">Multi-tenant isolation backed by replicated storage zones.</p>
             </motion.div>
           </div>
         </section>
 
-        {/* FOOTER */}
-        <footer className="pb-10">
-          <motion.div
+        {/* Team / Vision Section */}
+        <section className="mb-28">
+          <div className="text-center mb-12">
+            <span className="text-xs font-bold uppercase tracking-widest text-emerald-400 mb-3 block">Collaborative Impact</span>
+            <h2 className="text-3xl md:text-4xl font-black tracking-tight">The Development Team</h2>
+            <p className="text-gray-400 mt-2 text-sm max-w-md mx-auto">The open source team that built, trained, and deployed HELPDESK.AI.</p>
+
+            {/* Team Filters */}
+            <div className="flex flex-wrap gap-2 justify-center mt-8">
+              {["All", "Coordination", "Model", "Backend", "Frontend", "Data"].map(filter => (
+                <button
+                  key={filter}
+                  onClick={() => setActiveTeamFilter(filter)}
+                  className={`px-4 py-2 rounded-full text-xs font-semibold border transition-all ${
+                    activeTeamFilter === filter
+                      ? "bg-emerald-500 text-black border-emerald-500 shadow-md shadow-emerald-500/20"
+                      : "bg-white/5 text-gray-300 border-white/5 hover:border-white/20 hover:bg-white/10"
+                  }`}
+                >
+                  {filter}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <motion.div 
+            layout
             initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            variants={fadeInUp}
-            className="bg-white/5 border border-white/10 rounded-3xl p-8 md:p-10 backdrop-blur-xl relative overflow-hidden"
+            animate="visible"
+            variants={staggerContainer}
+            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar border border-white/5 bg-[#010906] p-6 rounded-[24px]"
           >
-            <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-emerald-500/10 via-transparent to-teal-400/8" />
-            <div className="relative z-10">
-              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-8">
-                <div className="max-w-md">
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                    <Layers className="w-4 h-4 text-emerald-300" />
-                    <span className="text-xs font-bold uppercase tracking-widest text-emerald-200">HELPDESK.AI</span>
+            <AnimatePresence mode="popLayout">
+              {filteredTeam.map((member, idx) => (
+                <motion.div
+                  layout
+                  key={member.name}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  transition={{ duration: 0.3 }}
+                  whileHover={{ y: -2 }}
+                  className="bg-[#021510] border border-white/10 p-5 rounded-xl flex items-center gap-4 relative overflow-hidden group hover:border-emerald-500/30 transition-all"
+                >
+                  {/* Avatar Initials Gradient */}
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-500/25 to-teal-400/25 border border-emerald-500/20 flex items-center justify-center font-bold text-emerald-300 text-sm tracking-tight shrink-0 shadow-inner group-hover:from-emerald-500/40 group-hover:to-teal-400/40 transition-all">
+                    {member.name.split(" ").map(n => n[0]).join("")}
                   </div>
-                  <p className="text-gray-400 mt-4 leading-relaxed">
-                    A premium enterprise helpdesk orchestrated by neural services—classification, extraction, semantic deduplication,
-                    and confidence-based resolution.
-                  </p>
-                  <div className="mt-6">
+
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-bold text-white truncate leading-snug">{member.name}</h4>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[10px] text-emerald-400 font-mono tracking-wide bg-emerald-500/5 px-1.5 py-0.5 rounded border border-emerald-500/10 uppercase">
+                        {member.team}
+                      </span>
+                      <span className="text-[10px] text-gray-400 truncate">{member.role}</span>
+                    </div>
+                  </div>
+
+                  {/* Social Buttons */}
+                  <div className="flex items-center gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
                     <a
-                      href="https://github.com/ritesh-1918/HELPDESK.AI"
+                      href={member.github}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-black font-bold px-6 py-3 rounded-xl transition-all shadow-lg"
+                      className="text-gray-400 hover:text-white transition-colors"
+                      aria-label={`${member.name} GitHub`}
                     >
-                      <Github size={18} />
-                      Visit GitHub
+                      <Github size={14} />
+                    </a>
+                    <a
+                      href={member.linkedin}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-gray-400 hover:text-emerald-400 transition-colors"
+                      aria-label={`${member.name} LinkedIn`}
+                    >
+                      <Linkedin size={14} />
                     </a>
                   </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
+        </section>
+
+        {/* Resource Links */}
+        <section className="mb-28">
+          <div className="text-center mb-12">
+            <span className="text-xs font-bold uppercase tracking-widest text-emerald-400 mb-3 block">Documentation Hub</span>
+            <h2 className="text-3xl font-black tracking-tight">Project Resources & Repos</h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <motion.a
+              href="https://github.com/Daksh7785/HELPDESK.AI"
+              target="_blank"
+              rel="noopener noreferrer"
+              whileHover={{ y: -4, borderColor: "rgba(16,185,129,0.3)" }}
+              className="bg-white/5 border border-white/10 p-6 rounded-2xl flex items-center justify-between group backdrop-blur-xl transition-all"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-400 group-hover:bg-emerald-500/20 transition-all">
+                  <Github size={22} />
                 </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 w-full md:w-auto">
-                  <div>
-                    <div className="text-xs font-bold uppercase tracking-widest text-emerald-300 mb-3">Product</div>
-                    <ul className="space-y-2 text-sm">
-                      <li>
-                        <a href="#features" className="text-gray-300 hover:text-emerald-300 transition-colors">AI Features</a>
-                      </li>
-                      <li>
-                        <a href="#pipeline" className="text-gray-300 hover:text-emerald-300 transition-colors">Neural Pipeline</a>
-                      </li>
-                      <li>
-                        <a href="#architecture" className="text-gray-300 hover:text-emerald-300 transition-colors">System Architecture</a>
-                      </li>
-                    </ul>
-                  </div>
-
-                  <div>
-                    <div className="text-xs font-bold uppercase tracking-widest text-emerald-300 mb-3">Enterprise</div>
-                    <ul className="space-y-2 text-sm">
-                      <li>
-                        <a href="#permissions" className="text-gray-300 hover:text-emerald-300 transition-colors">Permission Matrix</a>
-                      </li>
-                      <li>
-                        <a href="#mobile" className="text-gray-300 hover:text-emerald-300 transition-colors">Mobile Ecosystem</a>
-                      </li>
-                      <li>
-                        <a href="#roadmap" className="text-gray-300 hover:text-emerald-300 transition-colors">Roadmap</a>
-                      </li>
-                    </ul>
-                  </div>
-
-                  <div>
-                    <div className="text-xs font-bold uppercase tracking-widest text-emerald-300 mb-3">Community</div>
-                    <ul className="space-y-2 text-sm">
-                      <li>
-                        <a href="#oss" className="text-gray-300 hover:text-emerald-300 transition-colors">GSSoC Contributions</a>
-                      </li>
-                      <li>
-                        <a href="/terms-of-service" className="text-gray-300 hover:text-emerald-300 transition-colors">Terms</a>
-                      </li>
-                      <li>
-                        <a href="/privacy-policy" className="text-gray-300 hover:text-emerald-300 transition-colors">Privacy</a>
-                      </li>
-                    </ul>
-                  </div>
+                <div>
+                  <h4 className="font-bold text-white">GitHub Repository</h4>
+                  <p className="text-xs text-gray-500">Source code & PRs</p>
                 </div>
               </div>
+              <ExternalLink size={16} className="text-gray-500 group-hover:text-emerald-400 transition-colors" />
+            </motion.a>
 
-              <div className="mt-10 pt-6 border-t border-white/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div className="text-xs text-gray-500">
-                  © {new Date().getFullYear()} HELPDESK.AI. Built with <span className="text-emerald-300 font-semibold">💚</span> by the HELPDESK.AI Professional Team.
+            <motion.a
+              href="https://github.com/Daksh7785/HELPDESK.AI#readme"
+              target="_blank"
+              rel="noopener noreferrer"
+              whileHover={{ y: -4, borderColor: "rgba(16,185,129,0.3)" }}
+              className="bg-white/5 border border-white/10 p-6 rounded-2xl flex items-center justify-between group backdrop-blur-xl transition-all"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-400 group-hover:bg-emerald-500/20 transition-all">
+                  <BookOpen size={22} />
                 </div>
-                <div className="flex items-center gap-3 text-xs text-gray-500">
-                  <span className="inline-flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    Enterprise-grade UI + AI orchestration
-                  </span>
+                <div>
+                  <h4 className="font-bold text-white">API Reference</h4>
+                  <p className="text-xs text-gray-500">System architecture docs</p>
                 </div>
+              </div>
+              <ExternalLink size={16} className="text-gray-500 group-hover:text-emerald-400 transition-colors" />
+            </motion.a>
+
+            <motion.a
+              href="https://github.com/Daksh7785/HELPDESK.AI/issues"
+              target="_blank"
+              rel="noopener noreferrer"
+              whileHover={{ y: -4, borderColor: "rgba(16,185,129,0.3)" }}
+              className="bg-white/5 border border-white/10 p-6 rounded-2xl flex items-center justify-between group backdrop-blur-xl transition-all"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-400 group-hover:bg-emerald-500/20 transition-all">
+                  <HelpCircle size={22} />
+                </div>
+                <div>
+                  <h4 className="font-bold text-white">Active Roadmap</h4>
+                  <p className="text-xs text-gray-500">Issues and enhancements</p>
+                </div>
+              </div>
+              <ExternalLink size={16} className="text-gray-500 group-hover:text-emerald-400 transition-colors" />
+            </motion.a>
+          </div>
+        </section>
+
+        {/* CTA Footer Section */}
+        <section>
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeInUp}
+            className="bg-gradient-to-br from-emerald-950/80 via-emerald-900/40 to-emerald-950/80 border border-emerald-500/25 rounded-3xl p-8 md:p-12 text-center backdrop-blur-xl relative overflow-hidden shadow-2xl"
+          >
+            <div className="absolute top-0 right-0 w-72 h-72 bg-emerald-500/5 blur-[80px] rounded-full pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-72 h-72 bg-teal-500/5 blur-[80px] rounded-full pointer-events-none" />
+            
+            <div className="max-w-3xl mx-auto relative z-10">
+              <Users size={40} className="text-emerald-400 mx-auto mb-6" />
+              <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4 leading-tight">Ready to Automate Your Support Operations?</h2>
+              <p className="text-gray-300 text-sm md:text-base leading-relaxed mb-8 max-w-xl mx-auto">
+                Join early access or contact our sales team to deploy HELPDESK.AI within your enterprise environment.
+              </p>
+              
+              <div className="flex flex-wrap gap-4 justify-center items-center">
+                <button
+                  onClick={() => navigate("/admin-signup")}
+                  className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold px-6 py-3.5 rounded-xl transition-all shadow-lg hover:shadow-emerald-500/20 active:scale-[0.98]"
+                >
+                  Get Started Free
+                </button>
+                <button
+                  onClick={() => navigate("/contact-sales")}
+                  className="border border-white/20 hover:border-white/40 bg-white/5 hover:bg-white/10 text-white font-semibold px-6 py-3.5 rounded-xl transition-all active:scale-[0.98]"
+                >
+                  Contact Sales
+                </button>
+                <a
+                  href="https://github.com/Daksh7785/HELPDESK.AI"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="border border-white/20 hover:border-emerald-500/30 hover:bg-emerald-500/5 text-gray-300 hover:text-emerald-400 font-semibold px-6 py-3.5 rounded-xl transition-all flex items-center gap-2 active:scale-[0.98]"
+                >
+                  <Code size={16} /> Contribute Code
+                </a>
               </div>
             </div>
           </motion.div>
-        </footer>
+        </section>
+
       </div>
     </div>
   );
 };
 
 export default AboutUs;
-

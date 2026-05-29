@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { MOCK_TICKETS } from './mockData';
 import { API_CONFIG } from '../config';
+import { supabase } from '../lib/supabaseClient';
 
 const USE_MOCK = API_CONFIG.USE_MOCK;
 const API_BASE_URL = API_CONFIG.BACKEND_URL;
@@ -162,7 +163,11 @@ export const api = {
 
   logCorrection: async (correctionPayload) => {
     try {
-      await axios.post(`${API_BASE_URL}/ai/log_correction`, correctionPayload);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      await axios.post(`${API_BASE_URL}/ai/log_correction`, correctionPayload, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
     } catch (error) {
       // Non-fatal: log but don't break the UI flow
       console.warn("[Correction Log] Failed to save correction:", error);

@@ -14,6 +14,8 @@ import traceback
 import warnings
 import logging
 import hashlib
+import re
+import tempfile
 from contextlib import asynccontextmanager
 
 # Suppress harmless PyTorch CPU pin_memory warning
@@ -30,8 +32,10 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from fastapi.encoders import jsonable_encoder
 import asyncio
 from pathlib import Path
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from dotenv import load_dotenv
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 # Load environment variables from backend/.env
 env_path = Path(__file__).parent / '.env'
@@ -62,6 +66,9 @@ except (ImportError, Exception) as e:
 
 # Ensure project root is on path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+
+from backend.auth.tenant_middleware import security_manager
 
 from backend.services.classifier_service import ClassifierService
 from backend.services.classifier_v2 import classifier_v2
@@ -401,12 +408,21 @@ class TicketSaveRequest(BaseModel):
     ocr_text: str = ""
     needs_review: bool = False
     routing_confidence: float = 0.0
+    source: str = "text"
 
 
 
 class DuplicateInfo(BaseModel):
     is_duplicate: bool
     duplicate_ticket_id: str | None = None
+    similarity: float = 0.0
+
+
+class IncidentInfo(BaseModel):
+    incident_id: str | None = None
+    is_major_incident: bool = False
+    ticket_count: int = 0
+    affected_users: int = 0
     similarity: float = 0.0
 
 
@@ -435,12 +451,14 @@ class TicketResponse(BaseModel):
     assigned_team: str
     entities: list[EntityInfo]
     duplicate_ticket: DuplicateInfo
+    incident: IncidentInfo = IncidentInfo()
     confidence: float
     needs_review: bool = False
     reasoning: str = ""
     decision_factors: list[str] = []
     image_description: str = ""
     ocr_text: str = ""
+    image_url: str | None = None
     highlights: list[str] = []
     timeline: dict = {} # Map of step_name: timestamp
     env_metadata: dict = {} # IP, Hostname, Browser/OS
@@ -460,21 +478,7 @@ class Message(BaseModel):
     timestamp: str
 
 
-class TicketRecord(BaseModel):
-    ticket_id: str
-    owner_id: str
-    summary: str
-    category: str
-    subcategory: str
-    priority: str
-    status: str
-    assigned_team: str
-    created_at: str
-    updated_at: str | None = None
-    last_user_viewed_at: str | None = None
-    messages: list[Message] = []
-    metadata: dict = {}
-    timeline: dict = {} # Milestones: created, analyzed, triaged, routed, in_progress, resolved
+
 
 
 class AuditLogProfile(BaseModel):
@@ -495,8 +499,19 @@ class AuditLogRecord(BaseModel):
     performed_by_profile: AuditLogProfile | None = None
 
 
-# --- In-Memory Database (to be replaced with SQL later) ---
-TICKETS_DB: list[TicketRecord] = []
+
+
+
+class SLAPredictRequest(BaseModel):
+    priority: str
+    created_at: str
+    sla_breach_at: str | None = None
+    category: str | None = None
+    assigned_team: str | None = None
+    team_workload: str = "normal"
+    similar_avg_resolution_hours: float | None = None
+    similar_count: int = 0
+    thresholds: dict | None = None
 
 
 class HealthResponse(BaseModel):
@@ -516,6 +531,7 @@ class ReadinessResponse(BaseModel):
 classifier_service = ClassifierService()
 ner_service = NERService()
 duplicate_service = DuplicateService()
+incident_service = IncidentService(duplicate_service)
 rag_service = RagService()
 spam_service = SpamService()
 sla_engine = SLAEngine(supabase_client=None)  # Will be reassigned after supabase init
@@ -657,11 +673,11 @@ async def lifespan(app: FastAPI):
         print(f"[WARNING] Redis cache not available: {e}")
     try:
         classifier_service.load()
-    except FileNotFoundError as e:
+    except Exception as e:
         print(f"[WARNING] Classifier not loaded: {e}")
     try:
         ner_service.load()
-    except FileNotFoundError as e:
+    except Exception as e:
         print(f"[WARNING] NER not loaded: {e}")
     try:
         duplicate_service.load()
@@ -721,6 +737,8 @@ async def lifespan(app: FastAPI):
     except asyncio.CancelledError:
         pass
     print("[Shutdown] Cleaning up ...")
+    if hasattr(app.state, "scheduler"):
+        app.state.scheduler.shutdown()
 
 
 # ---------------------------------------------------------------------------
@@ -878,6 +896,49 @@ async def readiness_check():
     )
 
 
+# ---------------------------------------------------------------------------
+# Weekly Digest endpoints
+# ---------------------------------------------------------------------------
+@app.post("/api/digest/send-now")
+async def send_digest_now():
+    """Manual trigger to send the weekly digest email."""
+    from backend.services.digest_service import get_weekly_stats, generate_ai_summary, send_digest_email
+    
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Supabase connection not initialized")
+        
+    try:
+        # For manual test, get the first admin or a specific user
+        # To match the requirements simply: send to all admins with digest_enabled=True
+        res = supabase.table("system_settings").select("company_id, digest_enabled").eq("digest_enabled", True).execute()
+        companies = res.data or []
+        
+        sent_count = 0
+        for comp in companies:
+            company_id = comp.get("company_id")
+            admins_res = supabase.table("profiles").select("email").eq("company_id", company_id).eq("role", "admin").execute()
+            admins = admins_res.data or []
+            
+            if not admins:
+                continue
+                
+            stats = get_weekly_stats() 
+            summary = generate_ai_summary(stats)
+            
+            for admin in admins:
+                email = admin.get("email")
+                if email:
+                    send_digest_email(email, stats, summary)
+                    sent_count += 1
+                    
+        return {"status": "success", "emails_sent": sent_count}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 class TroubleshootRequest(BaseModel):
     text: str
     category: str
@@ -936,24 +997,68 @@ async def analyze_bug(request: BugReportAnalysisRequest):
 # Admin Correction Logging endpoint
 # ---------------------------------------------------------------------------
 CORRECTIONS_LOG_PATH = Path(__file__).parent / "data" / "corrections_log.json"
+_corrections_lock = asyncio.Lock()
+
+_EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
+_PHONE_RE = re.compile(r"\b\d{10,}\b")
+_IP_RE = re.compile(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b")
+
+
+def _redact_pii(text: str) -> str:
+    text = _EMAIL_RE.sub("[EMAIL REDACTED]", text)
+    text = _PHONE_RE.sub("[PHONE REDACTED]", text)
+    text = _IP_RE.sub("[IP REDACTED]", text)
+    return text
+
+
+def _atomic_write_json(path: Path, data) -> None:
+    tmp_path = path.with_suffix(".tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+    os.replace(tmp_path, path)
+
 
 @app.post("/ai/log_correction")
-async def log_correction(raw_request: Request):
+async def log_correction(raw_request: Request, user: dict = Depends(get_current_user)):
     """Log an admin correction when the AI prediction differs from the human decision."""
+    role = (user.get("user_metadata") or {}).get("role", "") or (user.get("app_metadata") or {}).get("role", "")
+    if role not in ("admin", "company_admin"):
+        raise HTTPException(status_code=403, detail="Only admins can log corrections")
+
+    profile = {}
+    if supabase:
+        try:
+            profile_res = supabase.table("profiles").select("company_id, company").eq("id", user["id"]).single().execute()
+            profile = profile_res.data or {}
+        except Exception:
+            pass
+
     try:
         body = await raw_request.json()
     except Exception as e:
-        print(f"[CORRECTION ERROR] Could not parse request body: {e}")
+        logging.error(f"[CORRECTION ERROR] Could not parse request body: {e}")
         return {"status": "error", "message": "Invalid JSON body"}
 
-    print(f"[CORRECTION RECEIVED] Payload keys: {list(body.keys())}")
+    logging.info(f"[CORRECTION RECEIVED] Payload keys: {list(body.keys())}")
 
     ticket_id = str(body.get("ticket_id", "unknown"))
-    original_text = str(body.get("original_text", ""))
-    ocr_text = str(body.get("ocr_text", ""))
+    original_text = _redact_pii(str(body.get("original_text", "")))
+    ocr_text = _redact_pii(str(body.get("ocr_text", "")))
     confidence = float(body.get("confidence") or 0.0)
     original_prediction = body.get("original_prediction") or {}
     corrected_prediction = body.get("corrected_prediction") or {}
+
+    if supabase and ticket_id != "unknown":
+        try:
+            ticket_res = supabase.table("tickets").select("id, company_id").eq("id", ticket_id).single().execute()
+            if not ticket_res.data:
+                return {"status": "error", "message": "Ticket not found"}
+            ticket_company = ticket_res.data.get("company_id")
+            admin_company = profile.get("company_id")
+            if admin_company and ticket_company and ticket_company != admin_company:
+                return {"status": "error", "message": "Ticket does not belong to your company"}
+        except Exception as e:
+            return {"status": "error", "message": f"Ticket not found"}
 
     # Only log if something actually changed
     changed_fields = [
@@ -972,26 +1077,27 @@ async def log_correction(raw_request: Request):
         "corrected_prediction": corrected_prediction,
         "changed_fields": changed_fields,
         "confidence": confidence,
+        "corrected_by": user["id"],
+        "company_id": profile.get("company_id"),
         "timestamp": datetime.datetime.utcnow().isoformat() + "Z"
     }
 
     try:
-        if CORRECTIONS_LOG_PATH.exists() and CORRECTIONS_LOG_PATH.stat().st_size > 2:
-            with open(CORRECTIONS_LOG_PATH, "r", encoding="utf-8") as f:
-                logs = json.load(f)
-        else:
-            logs = []
+        async with _corrections_lock:
+            if CORRECTIONS_LOG_PATH.exists() and CORRECTIONS_LOG_PATH.stat().st_size > 2:
+                with open(CORRECTIONS_LOG_PATH, "r", encoding="utf-8") as f:
+                    logs = json.load(f)
+            else:
+                logs = []
 
-        logs.append(entry)
+            logs.append(entry)
+            _atomic_write_json(CORRECTIONS_LOG_PATH, logs)
 
-        with open(CORRECTIONS_LOG_PATH, "w", encoding="utf-8") as f:
-            json.dump(logs, f, indent=2)
-
-        print(f"[CORRECTION SAVED] Ticket ID: {ticket_id} | Changed: {changed_fields}")
+        logging.info(f"[CORRECTION SAVED] Ticket ID: {ticket_id} | Changed: {changed_fields}")
         return {"status": "saved", "changed_fields": changed_fields}
 
     except Exception as e:
-        print(f"[CORRECTION ERROR] Could not save: {e}")
+        logging.error(f"[CORRECTION ERROR] Could not save: {e}")
         return {"status": "error", "message": str(e)}
 
 
@@ -1114,7 +1220,7 @@ def trigger_webhook_for_new_ticket(company_id: str, ticket: dict) -> None:
 
 
 @app.post("/tickets/save")
-async def save_ticket(request_body: TicketSaveRequest):
+async def save_ticket(request_body: TicketSaveRequest, user: dict = Depends(get_current_user)):
     """
     OFFICIAL PERSISTENCE: Saves the analyzed ticket to Supabase.
     This is called AFTER the user confirms the analysis results.
@@ -1242,7 +1348,7 @@ async def save_ticket(request_body: TicketSaveRequest):
             "user_id", "subject", "description", "category", "subcategory",
             "priority", "assigned_team", "status", "auto_resolve", "is_duplicate",
             "confidence", "image_url", "company", "company_id",
-            "sla_breach_at", "sla_response_due_at", "sla_status", "escalation_level", "metadata",
+            "sla_breach_at", "sla_response_due_at", "sla_status", "escalation_level", "metadata", "source"
         }
         # Merge any extra telemetry and SLA/duplicate fields into metadata before filtering
         existing_metadata = final_data.get("metadata") or {}
@@ -1347,6 +1453,8 @@ async def save_ticket(request_body: TicketSaveRequest):
             )
         return response
 
+    except HTTPException:
+        raise
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
@@ -1497,38 +1605,7 @@ async def search_tickets(
         return filtered
 
 
-@app.post("/tickets", response_model=TicketRecord)
-async def create_ticket(ticket: TicketRecord, current_user: dict = Depends(get_current_user)):
-    """Save a new ticket into the system. Requires authentication."""
-    # Check for duplicates before adding
-    existing = next((t for t in TICKETS_DB if t.ticket_id == ticket.ticket_id), None)
-    if existing:
-        return existing
-        
-    TICKETS_DB.append(ticket)
-    print(f"[DB] Ticket #{ticket.ticket_id} created for user {ticket.owner_id}")
-    return ticket
 
-
-@app.patch("/tickets/{ticket_id}", response_model=TicketRecord)
-async def update_ticket(ticket_id: str, updates: dict, user: dict = Depends(get_current_user)):
-    """Partially update a ticket's fields (e.g., status, viewed_at)."""
-    # Restrict updatable fields to prevent privilege escalation
-    ALLOWED_UPDATE_FIELDS = {
-        "status", "priority", "assigned_team", "last_user_viewed_at",
-        "updated_at", "messages", "metadata", "timeline", "summary",
-    }
-    sanitized = {k: v for k, v in updates.items() if k in ALLOWED_UPDATE_FIELDS}
-    for i, ticket in enumerate(TICKETS_DB):
-        if str(ticket.ticket_id) == str(ticket_id):
-            # Convert to dict, update only allowed fields, then back to model
-            ticket_dict = ticket.dict()
-            ticket_dict.update(sanitized)
-            updated_ticket = TicketRecord(**ticket_dict)
-            TICKETS_DB[i] = updated_ticket
-            return updated_ticket
-    
-    raise HTTPException(status_code=404, detail="Ticket not found")
 
 
 # ---------------------------------------------------------------------------
@@ -1557,7 +1634,7 @@ async def analyze_ticket(request_body: TicketRequest, request: Request):
     local_ocr_text = ""
     if request_body.image_base64 and ocr_service:
         print("[AI] Extracting text via local OCR...")
-        local_ocr_text = ocr_service.extract_text(request_body.image_base64)
+        local_ocr_text = await ocr_service.extract_text(request_body.image_base64)
         if local_ocr_text:
             text = f"{text} {local_ocr_text}".strip()
             print(f"[AI] OCR added {len(local_ocr_text)} chars to context.")
@@ -1686,6 +1763,21 @@ async def analyze_only(request_body: TicketRequest, request: Request):
     except Exception:
         dup_result = {"is_duplicate": False, "duplicate_ticket_id": None, "similarity": 0.0}
 
+    # --- Incident correlation (Enterprise Outage Detection) ---
+    try:
+        incident_result = incident_service.correlate(
+            text,
+            user_id=request_body.user_id,
+            category=classification.get("category"),
+            priority=classification.get("priority"),
+        )
+    except Exception as e:
+        print(f"[INCIDENT ERROR] {e}")
+        incident_result = {
+            "incident_id": None, "is_major_incident": False,
+            "ticket_count": 0, "affected_users": 0, "similarity": 0.0,
+        }
+
     # --- RAG Knowledge Base Check ---
     rag_match = None
     try:
@@ -1706,6 +1798,16 @@ async def analyze_only(request_body: TicketRequest, request: Request):
         decision_factors.append(f"Detected entities: {', '.join([e['text'] for e in entities[:2]])}")
     if dup_result["is_duplicate"]:
         decision_factors.append(f"Found similar incident ({int(dup_result['similarity']*100)}%)")
+    if incident_result.get("is_major_incident"):
+        decision_factors.append(
+            f"Linked to Major Incident {incident_result['incident_id']} "
+            f"({incident_result['ticket_count']} tickets, {incident_result['affected_users']} users)"
+        )
+    elif incident_result.get("incident_id") and incident_result.get("ticket_count", 0) > 1:
+        decision_factors.append(
+            f"Correlated to incident {incident_result['incident_id']} "
+            f"({incident_result['ticket_count']} related tickets)"
+        )
     if rag_match:
         decision_factors.append(f"Found solution article: '{rag_match['title']}'")
     if spam_result["is_spam"]:
@@ -1722,7 +1824,7 @@ async def analyze_only(request_body: TicketRequest, request: Request):
         reasoning += " Ticket flagged as spam/phishing and quarantined from agent inbox."
     
     timeline["routed"] = get_now_ist()
-    
+
     # --- Gemini Summary ---
     if gemini_service and gemini_service._initialized:
         summary = gemini_service.get_summary(text)
@@ -1742,6 +1844,7 @@ async def analyze_only(request_body: TicketRequest, request: Request):
         assigned_team=classification["assigned_team"],
         entities=[EntityInfo(**e) for e in entities],
         duplicate_ticket=DuplicateInfo(**dup_result),
+        incident=IncidentInfo(**incident_result),
         confidence=classification["confidence"],
         needs_review=classification["confidence"] < 0.20,
         reasoning=reasoning,
@@ -1834,6 +1937,23 @@ async def analyze_stream(request_body: TicketRequest):
         except Exception:
             dup_result = {"is_duplicate": False, "duplicate_ticket_id": None, "similarity": 0.0}
 
+        # 4b. Incident correlation
+        yield f"data: {json.dumps({'step': 'Correlating to active incidents', 'status': 'in_progress'})}\n\n"
+        await asyncio.sleep(0.2)
+        try:
+            incident_result = incident_service.correlate(
+                text,
+                user_id=request_body.user_id,
+                category=classification.get("category"),
+                priority=classification.get("priority"),
+            )
+        except Exception as e:
+            print(f"[INCIDENT ERROR] {e}")
+            incident_result = {
+                "incident_id": None, "is_major_incident": False,
+                "ticket_count": 0, "affected_users": 0, "similarity": 0.0,
+            }
+
         # 5. RAG / Solutions
         yield f"data: {json.dumps({'step': 'Finding possible solutions', 'status': 'in_progress'})}\n\n"
         await asyncio.sleep(0.2)
@@ -1888,6 +2008,7 @@ async def analyze_stream(request_body: TicketRequest):
             "assigned_team": classification["assigned_team"],
             "entities": [e for e in entities],
             "duplicate_ticket": dup_result,
+            "incident": incident_result,
             "confidence": classification["confidence"],
             "needs_review": classification["confidence"] < 0.20,
             "reasoning": reasoning,
@@ -2086,47 +2207,7 @@ async def trigger_sla_check():
     return {"status": "triggered", "message": "SLA check cycle started in background"}
 
 
-# ---------------------------------------------------------------------------
-# Weekly Digest Endpoints
-# ---------------------------------------------------------------------------
 
-class DigestSendRequest(BaseModel):
-    company_id: str
-    email: str
-
-@app.get("/api/digest/preview/{company_id}")
-async def preview_weekly_digest(company_id: str):
-    """Generate and return preview stats and AI summary for the weekly digest."""
-    from backend.services.digest_service import get_weekly_stats, generate_ai_summary
-    stats = get_weekly_stats(company_id)
-    summary = generate_ai_summary(stats)
-    return {"stats": stats, "ai_summary": summary}
-
-@app.post("/api/digest/send-now")
-async def trigger_weekly_digest(body: DigestSendRequest):
-    """Manually trigger the dispatch of a weekly operations digest email."""
-    from backend.services.digest_service import get_weekly_stats, generate_ai_summary, send_digest_email
-    stats = get_weekly_stats(body.company_id)
-    summary = generate_ai_summary(stats)
-    success = send_digest_email(body.email, stats, summary)
-    
-    if not success:
-        raise HTTPException(
-            status_code=500, 
-            detail="Failed to send digest email. Check if RESEND_API_KEY is configured."
-        )
-        
-    # Track the last sent timestamp in settings
-    if supabase:
-        try:
-            supabase.table("system_settings").update({
-                "digest_last_sent": datetime.datetime.now(datetime.timezone.utc).isoformat()
-            }).eq("company_id", body.company_id).execute()
-        except Exception as e:
-            logger = logging.getLogger(__name__)
-            logger.warning(f"[Digest] Failed to update digest_last_sent: {e}")
-            
-    return {"status": "success", "recipient": body.email}
 
 
 # ---------------------------------------------------------------------------
@@ -2232,20 +2313,6 @@ async def sla_ticket_detail(ticket_id: str):
         "escalations": escalations,
     }
 
-
-from fastapi import UploadFile, File
-
-@app.post("/api/voice/transcribe")
-async def api_voice_transcribe(audio: UploadFile = File(...)):
-    """Transcribes an audio file into text using OpenAI Whisper asynchronously."""
-    from backend.services.voice_service import transcribe_audio_async
-    try:
-        content = await audio.read()
-        result = await transcribe_audio_async(content)
-        return result
-    except Exception as e:
-        logger.error(f"Voice transcription endpoint error: {e}")
-        raise HTTPException(status_code=500, detail=f"Voice transcription failed: {str(e)}")
 
 
 @app.get("/metrics")

@@ -25,6 +25,7 @@ import { translateText, SUPPORTED_LANGUAGES } from '../../services/translationSe
 import TemplateSelector from '../components/TemplateSelector';
 import TemplateForm from '../components/TemplateForm';
 import TICKET_TEMPLATES, { serializeFieldsToText, getEmptyFormValues } from '../../data/ticketTemplates';
+import { API_CONFIG } from '../../config';
 
 const CreateTicket = () => {
     const [issue, setIssue] = useState('');
@@ -41,7 +42,7 @@ const CreateTicket = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const MAX_CHARS = 1000;
-    const supportsSpeech = 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window;
+    const supportsSpeech = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
     const [selectedLanguage, setSelectedLanguage] = useState('en');
     const [isTranslating, setIsTranslating] = useState(false);
     const [isLangOpen, setIsLangOpen] = useState(false);
@@ -58,6 +59,7 @@ const CreateTicket = () => {
     const [showVoiceModal, setShowVoiceModal] = useState(false);
     const [voiceTranscript, setVoiceTranscript] = useState('');
     const [interimVoice, setInterimVoice] = useState('');
+    const [usedVoice, setUsedVoice] = useState(false);
 
     // Voice Refs & Visualizer
     const recognitionRef = useRef(null);
@@ -67,6 +69,11 @@ const CreateTicket = () => {
     const animationFrameRef = useRef(null);
     const [visualizerData, setVisualizerData] = useState(new Array(16).fill(15));
     const streamRef = useRef(null);
+    const mediaRecorderRef = useRef(null);
+    const audioChunksRef = useRef([]);
+    const [recordingTime, setRecordingTime] = useState(120);
+    const recordingTimerRef = useRef(null);
+    const [isTranscribing, setIsTranscribing] = useState(false);
 
     useEffect(() => {
         return () => {
@@ -130,10 +137,8 @@ const CreateTicket = () => {
     };
 
     const startListening = async () => {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        
-        if (!SpeechRecognition) {
-            setError("Speech recognition is not supported in this browser.");
+        if (!supportsSpeech) {
+            setError("Microphone is not supported in this browser.");
             return;
         }
 
@@ -167,51 +172,56 @@ const CreateTicket = () => {
             };
             updateVisualizer();
 
-            // Initialize Speech Recognition
-            const recognition = new SpeechRecognition();
-            recognition.continuous = true;
-            recognition.interimResults = true;
-            recognition.lang = 'en-US';
+            // Setup MediaRecorder
+            const mediaRecorder = new MediaRecorder(stream);
+            mediaRecorderRef.current = mediaRecorder;
+            audioChunksRef.current = [];
 
-            recognition.onresult = (event) => {
-                let finalStr = '';
-                let interimStr = '';
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    if (event.results[i].isFinal) {
-                        finalStr += event.results[i][0].transcript;
-                    } else {
-                        interimStr += event.results[i][0].transcript;
-                    }
-                }
-                if (finalStr) setVoiceTranscript(prev => prev + ' ' + finalStr);
-                setInterimVoice(interimStr);
-            };
-
-            recognition.onerror = (event) => {
-                console.error("Speech Recognition Error:", event.error);
-                if (event.error !== 'no-speech') {
-                    setError(`Microphone error: ${event.error}`);
-                    stopListening();
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunksRef.current.push(event.data);
                 }
             };
 
-            recognition.onend = () => {
-                if (isListeningRef.current) {
-                    try {
-                        recognitionRef.current?.start();
-                    } catch {
-                        // start() may throw if already running — safely ignore
-                    }
-                } else {
-                    if (animationFrameRef.current) {
-                        cancelAnimationFrame(animationFrameRef.current);
-                        animationFrameRef.current = null;
-                    }
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                setIsTranscribing(true);
+                try {
+                    const formData = new FormData();
+                    formData.append('audio', audioBlob, 'recording.webm');
+                    
+                    const backendUrl = API_CONFIG.BACKEND_URL;
+                    const res = await fetch(`${backendUrl}/api/voice/transcribe`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (!res.ok) throw new Error('Transcription failed');
+                    const data = await res.json();
+                    
+                    setVoiceTranscript(prev => {
+                        const combined = prev + ' ' + (data.transcribed_text || '');
+                        return combined.trim();
+                    });
+                } catch (err) {
+                    console.error("Transcription Error:", err);
+                    setError("Failed to transcribe audio.");
+                } finally {
+                    setIsTranscribing(false);
                 }
             };
 
-            recognitionRef.current = recognition;
-            recognition.start();
+            mediaRecorder.start();
+            setRecordingTime(120);
+            recordingTimerRef.current = setInterval(() => {
+                setRecordingTime(prev => {
+                    if (prev <= 1) {
+                        stopListening();
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
 
             setIsListening(true);
             isListeningRef.current = true;
@@ -229,10 +239,16 @@ const CreateTicket = () => {
     const stopListening = () => {
         setIsListening(false);
         isListeningRef.current = false;
-        if (recognitionRef.current) {
-            recognitionRef.current.stop();
-            recognitionRef.current = null;
+
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop();
         }
+
+        if (recordingTimerRef.current) {
+            clearInterval(recordingTimerRef.current);
+            recordingTimerRef.current = null;
+        }
+
         if (animationFrameRef.current) {
             cancelAnimationFrame(animationFrameRef.current);
             animationFrameRef.current = null;
@@ -248,11 +264,11 @@ const CreateTicket = () => {
     };
 
     const handleSaveVoice = () => {
-        stopListening();
         setIssue(prev => {
-            const combined = prev + ' ' + voiceTranscript + ' ' + interimVoice;
+            const combined = prev + ' ' + voiceTranscript;
             return combined.trim().substring(0, MAX_CHARS);
         });
+        setUsedVoice(true);
         setShowVoiceModal(false);
     };
 
@@ -412,6 +428,7 @@ const CreateTicket = () => {
                     template_used: templateUsed,
                     user_modified: userModified,
                     ticket_title: ticketTitle.trim() || null,
+                    source: usedVoice ? "voice" : "text",
                 }
             });
 
@@ -588,7 +605,7 @@ const CreateTicket = () => {
                                                     </div>
                                                     <div>
                                                         <h4 className="text-sm font-bold text-gray-900">Voice Assistant</h4>
-                                                        <p className="text-xs text-gray-500 font-medium">{isListening ? "Listening to your voice..." : "Tap to describe via voice"}</p>
+                                                        <p className="text-xs text-gray-500 font-medium">{isListening ? `Listening... (${recordingTime}s)` : isTranscribing ? "Transcribing your voice..." : "Tap to describe via voice"}</p>
                                                     </div>
                                                 </div>
                                                 <Button
@@ -772,7 +789,7 @@ const CreateTicket = () => {
                                     </div>
                                     <div>
                                         <h3 className="font-bold text-gray-900 leading-tight">Live Dictation</h3>
-                                        <p className="text-xs text-emerald-600 font-medium">{isListening ? "Listening..." : "Paused"}</p>
+                                        <p className="text-xs text-emerald-600 font-medium">{isListening ? `Listening... (${recordingTime}s remaining)` : isTranscribing ? "Transcribing your voice..." : "Paused"}</p>
                                     </div>
                                 </div>
                                 <button
@@ -833,14 +850,24 @@ const CreateTicket = () => {
                                 >
                                     Cancel
                                 </Button>
-                                <Button
-                                    type="button"
-                                    onClick={handleSaveVoice}
-                                    disabled={!voiceTranscript && !interimVoice}
-                                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-12 rounded-xl shadow-lg shadow-emerald-200"
-                                >
-                                    Insert Text
-                                </Button>
+                                {isListening ? (
+                                    <Button
+                                        type="button"
+                                        onClick={stopListening}
+                                        className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold h-12 rounded-xl shadow-lg shadow-red-200"
+                                    >
+                                        Stop Recording
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        type="button"
+                                        onClick={handleSaveVoice}
+                                        disabled={!voiceTranscript && !isTranscribing}
+                                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-12 rounded-xl shadow-lg shadow-emerald-200 flex items-center justify-center"
+                                    >
+                                        {isTranscribing ? <><Loader2 className="animate-spin mr-2" size={18}/> Transcribing...</> : "Insert Text"}
+                                    </Button>
+                                )}
                             </div>
                         </motion.div>
                     </motion.div>
