@@ -131,6 +131,11 @@ const TicketTable = ({ tickets = [], isLoading = false, limit = null }) => {
                                         <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '220px' }}>
                                             <span style={{ fontSize: '13px', fontWeight: 500, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                 {truncSubject}
+                                                {ticket.source === 'voice' && (
+                                                    <span title="Voice Submitted" style={{ marginLeft: '6px', fontSize: '14px' }}>
+                                                        🎙️
+                                                    </span>
+                                                )}
                                             </span>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                 <span style={{ fontSize: '11px', color: '#6b7280' }}>

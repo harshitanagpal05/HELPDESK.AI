@@ -63,6 +63,7 @@ const TicketTracking = () => {
                     company: profile?.company || null,
                     company_id: profile?.company_id || null,
                     sla_breach_at: aiTicket.sla_breach_at || getSlaBreachAt(aiTicket.priority),
+                    source: aiTicket.source || 'text',
                     metadata: {
                         confidence: aiTicket.confidence,
                         entities: aiTicket.entities,

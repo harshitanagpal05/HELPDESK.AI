@@ -376,6 +376,7 @@ class TicketSaveRequest(BaseModel):
     ocr_text: str = ""
     needs_review: bool = False
     routing_confidence: float = 0.0
+    source: str = "text"
 
 
 
@@ -1154,7 +1155,7 @@ async def save_ticket(request_body: TicketSaveRequest):
             "user_id", "subject", "description", "category", "subcategory",
             "priority", "assigned_team", "status", "auto_resolve", "is_duplicate",
             "confidence", "image_url", "company", "company_id",
-            "sla_breach_at", "sla_response_due_at", "sla_status", "escalation_level", "metadata",
+            "sla_breach_at", "sla_response_due_at", "sla_status", "escalation_level", "metadata", "source"
         }
         # Merge any extra telemetry and SLA/duplicate fields into metadata before filtering
         existing_metadata = final_data.get("metadata") or {}
