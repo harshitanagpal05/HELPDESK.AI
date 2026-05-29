@@ -32,7 +32,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from fastapi.encoders import jsonable_encoder
 import asyncio
 from pathlib import Path
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from dotenv import load_dotenv
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -1634,7 +1634,7 @@ async def analyze_ticket(request_body: TicketRequest, request: Request):
     local_ocr_text = ""
     if request_body.image_base64 and ocr_service:
         print("[AI] Extracting text via local OCR...")
-        local_ocr_text = ocr_service.extract_text(request_body.image_base64)
+        local_ocr_text = await ocr_service.extract_text(request_body.image_base64)
         if local_ocr_text:
             text = f"{text} {local_ocr_text}".strip()
             print(f"[AI] OCR added {len(local_ocr_text)} chars to context.")
