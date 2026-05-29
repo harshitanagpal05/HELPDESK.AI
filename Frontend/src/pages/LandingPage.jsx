@@ -53,8 +53,8 @@ function AnimatedStat({ target, suffix = '', prefix = '', label, isWord = false 
     }, [triggered, target, isWord]);
 
     return (
-        <div ref={ref} className="p-4">
-            <div className="text-4xl font-extrabold mb-1 text-white tabular-nums">
+        <div ref={ref} className="p-3 sm:p-4">
+            <div className="text-2xl sm:text-3xl md:text-4xl font-extrabold mb-1 text-white tabular-nums">
                 {prefix}{display}{suffix}
             </div>
             <div className="text-sm text-white font-medium tracking-wide opacity-75">{label}</div>
@@ -587,9 +587,9 @@ export default function LandingPage() {
             </section>
 
             {/* ==================== STATS BAR ==================== */}
-            <section className="bg-emerald-900 py-12 text-white">
+            <section className="bg-emerald-900 py-8 sm:py-12 text-white">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 text-center divide-y-2 sm:divide-y-0 sm:divide-x divide-white/10">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-8 text-center divide-y-2 sm:divide-y-0 sm:divide-x divide-white/10">
                         <AnimatedStat prefix="+" target="80" suffix="%" label="Faster Ticket Triage" />
                         <AnimatedStat target="99" suffix="%" label="Classification Accuracy" />
                         <AnimatedStat target="Zero" label="Manual Routing Needed" isWord={true} />
@@ -599,18 +599,18 @@ export default function LandingPage() {
             </section>
 
             {/* ==================== FEATURES GRID ==================== */}
-            <section className="py-24 bg-white" id="features">
+            <section className="py-16 sm:py-20 md:py-24 bg-white" id="features">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center mb-16">
                         <span className="text-xs font-bold tracking-widest text-emerald-700 uppercase mb-3 block">Core Intelligence</span>
-                        <h2 className="text-3xl md:text-5xl font-extrabold text-gray-900 tracking-tight">Work Smarter, Not Harder</h2>
+                        <h2 className="text-2xl sm:text-3xl md:text-5xl font-extrabold text-gray-900 tracking-tight">Work Smarter, Not Harder</h2>
                         <p className="text-gray-500 mt-4 text-lg max-w-xl mx-auto">Three AI capabilities that eliminate manual helpdesk work.</p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
                         {/* Card 1: Auto-Categorization */}
                         <div className="group rounded-3xl bg-gray-50 border border-gray-100 overflow-hidden hover:shadow-xl hover:shadow-gray-200/50 transition-all duration-300 hover:-translate-y-1">
-                            <div className="h-52 bg-gradient-to-br from-blue-50 to-gray-50 p-6 flex items-center justify-center relative overflow-hidden">
+                            <div className="h-40 sm:h-44 md:h-52 bg-gradient-to-br from-blue-50 to-gray-50 p-4 sm:p-6 flex items-center justify-center relative overflow-hidden">
                                 <div className="relative z-10 flex flex-col gap-3 items-center">
                                     <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200 text-xs font-bold text-gray-400 flex items-center gap-2 transform -translate-x-4 opacity-60">
                                         <div className="w-2 h-2 rounded-full bg-gray-300" /> Ticket #1024
@@ -629,7 +629,7 @@ export default function LandingPage() {
                                     </div>
                                 </div>
                             </div>
-                            <div className="p-8">
+                            <div className="p-5 sm:p-6 md:p-8">
                                 <h3 className="text-xl font-bold text-gray-900 mb-3">Auto-Categorization</h3>
                                 <p className="text-gray-500 leading-relaxed mb-6">
                                     Instantly detects if an issue is Network, Hardware, Software, or Access-related — no manual tagging.
@@ -645,7 +645,7 @@ export default function LandingPage() {
 
                         {/* Card 2: Priority Detection */}
                         <div className="group rounded-3xl bg-gray-50 border border-gray-100 overflow-hidden hover:shadow-xl hover:shadow-gray-200/50 transition-all duration-300 hover:-translate-y-1">
-                            <div className="h-52 bg-gradient-to-br from-red-50 to-orange-50 p-6 flex items-center justify-center relative overflow-hidden">
+                            <div className="h-40 sm:h-44 md:h-52 bg-gradient-to-br from-red-50 to-orange-50 p-4 sm:p-6 flex items-center justify-center relative overflow-hidden">
                                 <div className="relative z-10 w-full max-w-[200px] space-y-2.5">
                                     <div className="bg-white p-2.5 rounded-lg border border-gray-200 shadow-sm flex items-center justify-between opacity-50 scale-95">
                                         <div className="flex items-center gap-2">
@@ -670,7 +670,7 @@ export default function LandingPage() {
                                     </div>
                                 </div>
                             </div>
-                            <div className="p-8">
+                            <div className="p-5 sm:p-6 md:p-8">
                                 <h3 className="text-xl font-bold text-gray-900 mb-3">Priority Detection</h3>
                                 <p className="text-gray-500 leading-relaxed mb-6">
                                     Understands urgency signals in text and automatically flags issues from Low to Critical.
@@ -686,7 +686,7 @@ export default function LandingPage() {
 
                         {/* Card 3: Smart Resolution */}
                         <div className="group rounded-3xl bg-gray-50 border border-gray-100 overflow-hidden hover:shadow-xl hover:shadow-gray-200/50 transition-all duration-300 hover:-translate-y-1">
-                            <div className="h-52 bg-gradient-to-br from-emerald-50 to-teal-50 p-6 flex items-center justify-center relative overflow-hidden">
+                            <div className="h-40 sm:h-44 md:h-52 bg-gradient-to-br from-emerald-50 to-teal-50 p-4 sm:p-6 flex items-center justify-center relative overflow-hidden">
                                 <div className="relative z-10 w-full max-w-[200px] flex flex-col gap-3">
                                     <div className="self-end bg-emerald-600 text-white p-2.5 rounded-2xl rounded-tr-none shadow-sm text-[10px] max-w-[80%]">
                                         Reset password for user@company.com?
@@ -705,7 +705,7 @@ export default function LandingPage() {
                                     </div>
                                 </div>
                             </div>
-                            <div className="p-8">
+                            <div className="p-5 sm:p-6 md:p-8">
                                 <h3 className="text-xl font-bold text-gray-900 mb-3">Smart Resolution</h3>
                                 <p className="text-gray-500 leading-relaxed mb-6">
                                     Checks historical data to auto-fix simple issues, or routes complex ones to the right human team.
