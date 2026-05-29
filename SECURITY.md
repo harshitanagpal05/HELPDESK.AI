@@ -2,22 +2,21 @@
 
 ## Supported Versions
 
-The following versions of HELPDESK.AI are currently supported with security updates:
+The following versions of this project are currently supported with security updates:
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.0.x   | :white_check_mark: |
-| < 1.0   | :x:                |
+| Version | Supported |
+| ------- | --------- |
+| Active  | Yes       |
 
 ## Reporting a Vulnerability
 
-Please do **not** report security vulnerabilities through public GitHub issues. 
+We take the security of this project seriously. If you believe you have found a security vulnerability, please do not report it via a public GitHub issue.
 
-Instead, please report them via email to `masteradmin@helpdesk.ai` (or your platform's designated security contact) or utilize GitHub's private vulnerability reporting feature.
+Instead, please report security vulnerabilities by emailing the maintainer team at riteshvashishtha12@gmail.com.
 
-We take all security vulnerabilities seriously. Once a vulnerability is submitted, we will:
-1. Acknowledge receipt of your report within 48 hours.
-2. Strive to send you regular updates about our progress in investigating and mitigating the issue.
-3. Release a patch or advisory once the issue has been resolved.
+Please include:
+- A detailed description of the vulnerability.
+- Steps or a proof-of-concept (PoC) to reproduce the issue.
+- Any potential impact or risk associated with the vulnerability.
 
-Thank you for helping us keep HELPDESK.AI safe and secure for all users!
+We will acknowledge receipt of your report within 48 hours and work diligently to address and resolve the issue. Thank you for helping keep our community safe and secure!
